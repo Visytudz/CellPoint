@@ -181,6 +181,42 @@ class Dataset(data.Dataset):
                 all_data.extend(data)
         return all_data
 
+    def to_ply(self, item: int, filename: str) -> None:
+        """
+        Saves a point cloud to a PLY file in ASCII format.
+
+        Parameters
+        ----------
+        item : int
+            The index of the data point to save.
+        filename : str
+            The path to save the PLY file.
+        """
+        num_points = self.data[item].shape[0]
+
+        # Create the PLY header
+        header = [
+            "ply",
+            "format ascii 1.0",
+            f"element vertex {num_points}",
+            "property float x",
+            "property float y",
+            "property float z",
+            "end_header",
+        ]
+
+        # Ensure the output directory exists
+        output_dir = os.path.dirname(filename)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        # Write the header and data to the file
+        with open(filename, "w") as f:
+            f.write("\n".join(header) + "\n")
+            np.savetxt(f, self.data[item], fmt="%.6f")
+
+        print(f"Point cloud saved to {filename}")
+
     def __getitem__(self, item: int):
         """Retrieves a single data point from the dataset."""
         point_set = self.data[item][: self.num_points]  # (N, 3)
@@ -220,8 +256,10 @@ if __name__ == "__main__":
         dataset_name=dataset_name,
         num_points=2048,
         split=split,
+        load_name=True,
         random_rotate=True,
         random_jitter=True,
         random_translate=True,
     )
-    print(dataset[0])
+    print(dataset[15])
+    dataset.to_ply(15, "test.ply")
