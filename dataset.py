@@ -137,8 +137,11 @@ class Dataset(data.Dataset):
         split_dir = os.path.join(self.root, split)
         if not os.path.isdir(split_dir):
             return
+        # .h5 or .hdf5
         h5_pattern = os.path.join(split_dir, "*.h5")
+        hdf5_pattern = os.path.join(split_dir, "*.hdf5")
         self.path_h5py_all.extend(sorted(glob(h5_pattern)))
+        self.path_h5py_all.extend(sorted(glob(hdf5_pattern)))
         return
 
     def _load_h5py(self, path: List[str]) -> Tuple[
@@ -237,12 +240,12 @@ class Dataset(data.Dataset):
 
 if __name__ == "__main__":
     root = "datasets"
-    dataset_name = "shapenetcorev2"
+    dataset_name = "3dcell"
     split = ["train"]
     dataset = Dataset(
         root=root,
         dataset_name=dataset_name,
-        num_points=2048,
+        num_points=20480,
         split=split,
         load_name=True,
         load_id=True,
@@ -251,4 +254,3 @@ if __name__ == "__main__":
         random_translate=True,
     )
     print(dataset[15])
-    dataset.to_ply(15, "test.ply")
