@@ -47,7 +47,7 @@ class Dataset(data.Dataset):
         num_points: int = 2048,
         split: list[str] = ["train"],
         load_name: bool = False,
-        load_file: bool = False,
+        load_id: bool = False,
         random_rotate: bool = False,
         random_jitter: bool = False,
         random_translate: bool = False,
@@ -69,8 +69,8 @@ class Dataset(data.Dataset):
             The split of the dataset.
         load_name : bool, optional
             Whether to load the label name of the dataset.
-        load_file : bool, optional
-            Whether to load the file path of the dataset.
+        load_id : bool, optional
+            Whether to load the id of the dataset.
         random_rotate : bool, optional
             Whether to apply random rotation to the dataset.
         random_jitter : bool, optional
@@ -84,20 +84,17 @@ class Dataset(data.Dataset):
         self.num_points: int = num_points
         self.split: list[str] = split
         self.load_name: bool = load_name
-        self.load_file: bool = load_file
+        self.load_id: bool = load_id
         self.random_rotate: bool = random_rotate
         self.random_jitter: bool = random_jitter
         self.random_translate: bool = random_translate
 
         self.path_h5py_all: List[str] = []
-        self.path_file_all: List[str] = []
-
         # Load metadata from the JSON file
         self._load_metadata()
-
-        # Get the paths of h5 and json files for all splits
+        # Get the paths of h5 files for all splits
         for split in self.split:
-            self.get_path(split)
+            self._get_path(split)
         if not self.path_h5py_all:
             raise FileNotFoundError(
                 f"No HDF5 files found for split '{self.split}' in '{self.root}'. "
@@ -105,14 +102,12 @@ class Dataset(data.Dataset):
             )
 
         # Load the data from h5 files and json files
-        data_list, label_list = self.load_h5py(self.path_h5py_all)
+        data_list, label_list, id_list = self._load_h5py(self.path_h5py_all)
         self.data: NDArray[np.float32] = np.concatenate(data_list, axis=0)  # (B, N, 3)
         self.label: NDArray[np.int64] = np.concatenate(label_list, axis=0)  # (B, 1)
+        self.id: NDArray[np.str_] = np.concatenate(id_list, axis=0)  # (B, )
         self.name: NDArray[np.str_] = np.array(
             [self.label2name[label_idx] for label_idx in self.label.squeeze()]
-        )  # (B, )
-        self.file: NDArray[np.str_] = np.array(
-            self.load_json(self.path_file_all)
         )  # (B, )
 
         # Filter the data by class choice
@@ -120,8 +115,8 @@ class Dataset(data.Dataset):
             indices = self.name == self.class_choice  # (B, )
             self.data = self.data[indices]
             self.label = self.label[indices]
+            self.id = self.id[indices]
             self.name = self.name[indices]
-            self.file = self.file[indices]
 
     def _load_metadata(self) -> None:
         """Loads metadata from metadata.json located in the dataset's root directory."""
@@ -137,49 +132,36 @@ class Dataset(data.Dataset):
             name: i for i, name in enumerate(self.label2name)
         }
 
-    def get_path(self, split: str) -> None:
-        """
-        Get the paths of h5 and json files for a given data split.
-
-        Parameters
-        ----------
-        split : str
-            The data split, e.g., 'train', 'test', 'val'.
-        """
+    def _get_path(self, split: str) -> None:
+        """Get the paths of h5 files for a given data split."""
         split_dir = os.path.join(self.root, split)
-
         if not os.path.isdir(split_dir):
             return
-
         h5_pattern = os.path.join(split_dir, "*.h5")
         self.path_h5py_all.extend(sorted(glob(h5_pattern)))
-
-        # Always load file pattern information
-        file_pattern = os.path.join(split_dir, "*_id2file.json")
-        self.path_file_all.extend(sorted(glob(file_pattern)))
-
         return
 
-    def load_h5py(self, path: List[str]) -> Tuple[List[NDArray], List[NDArray]]:
+    def _load_h5py(self, path: List[str]) -> Tuple[
+        List[NDArray[np.float32]],
+        List[NDArray[np.int64]],
+        List[NDArray[np.str_]],
+    ]:
         """Loads data from a list of HDF5 files."""
         all_data: List[NDArray[np.float32]] = []
         all_label: List[NDArray[np.int64]] = []
+        all_id: List[NDArray[np.str_]] = []
         for h5_name in path:
             with h5py.File(h5_name, "r") as f:
                 data = f["data"][:].astype("float32")  # (B, N, 3)
                 label = f["label"][:].astype("int64")  # (B, 1)
+                if "id" in f:
+                    id = f["id"][:].astype("str")  # (B, )
+                else:
+                    id = np.array([""] * data.shape[0])  # (B, )
                 all_data.append(data)
                 all_label.append(label)
-        return all_data, all_label
-
-    def load_json(self, path: List[str]) -> List[str]:
-        """Loads and concatenates data from a list of JSON files."""
-        all_data: List[str] = []
-        for json_name in path:
-            with open(json_name, "r") as j:
-                data = json.load(j)
-                all_data.extend(data)
-        return all_data
+                all_id.append(id)
+        return all_data, all_label, all_id
 
     def to_ply(self, item: int, filename: str) -> None:
         """
@@ -217,7 +199,13 @@ class Dataset(data.Dataset):
 
         print(f"Point cloud saved to {filename}")
 
-    def __getitem__(self, item: int):
+    def __getitem__(
+        self, item: int
+    ) -> (
+        Tuple[torch.Tensor, torch.Tensor]
+        | Tuple[torch.Tensor, torch.Tensor, str]
+        | Tuple[torch.Tensor, torch.Tensor, str, str]
+    ):
         """Retrieves a single data point from the dataset."""
         point_set = self.data[item][: self.num_points]  # (N, 3)
         label = self.label[item]  # (1, )
@@ -237,8 +225,8 @@ class Dataset(data.Dataset):
         result = [point_set_tensor, label_tensor]
         if self.load_name:
             result.append(str(self.name[item]))
-        if self.load_file:
-            result.append(str(self.file[item]))
+        if self.load_id:
+            result.append(str(self.id[item]))
 
         return tuple(result)
 
@@ -257,6 +245,7 @@ if __name__ == "__main__":
         num_points=2048,
         split=split,
         load_name=True,
+        load_id=True,
         random_rotate=True,
         random_jitter=True,
         random_translate=True,
