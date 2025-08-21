@@ -52,7 +52,7 @@ def local_cov(points: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     torch.Tensor
-        The local covariance features, shape (B, C+C*C, C).
+        The local covariance features, shape (B, C + C*C, N).
     """
     B, C, N = points.size()
     k = idx.size(-1)
@@ -64,7 +64,7 @@ def local_cov(points: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
     cov = (neighbors_centered.transpose(3, 2) @ neighbors_centered) / k  # (B, N, C, C)
     cov_flat = cov.view(B, N, -1).transpose(1, 2)  # (B, C*C, N)
 
-    return torch.cat((points, cov_flat), dim=1)  # (B, C+C*C, C)
+    return torch.cat((points, cov_flat), dim=1)  # (B, C+C*C, N)
 
 
 def local_maxpool(points: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:

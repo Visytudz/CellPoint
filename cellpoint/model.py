@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import numpy as np
-import itertools
 
 from utils import knn, local_cov, local_maxpool
 
@@ -142,12 +140,11 @@ class FoldingNetDecoder(nn.Module):
 
     def _create_and_register_grid(self, grid_size: int) -> None:
         """Creates the 2D grid points and registers them as a buffer."""
-        x_coords = np.linspace(-0.3, 0.3, grid_size)
-        y_coords = np.linspace(-0.3, 0.3, grid_size)
-        grid_points_list = list(itertools.product(x_coords, y_coords))  # (M, 2)
-        grid_points = torch.tensor(grid_points_list, dtype=torch.float32)  # (M, 2)
-        grid_points = grid_points.unsqueeze(0)  # (1, 2, M)
-        self.register_buffer("grid", grid_points)
+        x_coords = torch.linspace(-0.3, 0.3, grid_size)  # (grid_size,)
+        y_coords = torch.linspace(-0.3, 0.3, grid_size)  # (grid_size,)
+        grid_x, grid_y = torch.meshgrid(x_coords, y_coords, indexing="ij")
+        grid_points = torch.stack([grid_x.flatten(), grid_y.flatten()], dim=0)  # (2, M)
+        self.register_buffer("grid", grid_points.unsqueeze(0))  # (1, 2, M)
 
     def forward(self, codeword: torch.Tensor) -> torch.Tensor:
         """
@@ -198,3 +195,10 @@ class FoldingNet(nn.Module):
         codeword = self.encoder(point_cloud)  # (B, feat_dims, 1)
         reconstruction = self.decoder(codeword)  # (B, M, 3)
         return reconstruction
+
+
+if __name__ == "__main__":
+    model = FoldingNet()
+    point_cloud = torch.randn(1, 1024, 3)
+    reconstruction = model(point_cloud)
+    print(reconstruction.shape)
