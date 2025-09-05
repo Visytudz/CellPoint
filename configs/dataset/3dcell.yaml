@@ -1,0 +1,5 @@
+# configs/dataset/3dcell.yaml
+
+name: 3dcell
+root: "datasets"
+num_points: 20480

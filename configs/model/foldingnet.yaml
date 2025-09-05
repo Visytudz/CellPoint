@@ -1,0 +1,6 @@
+# configs/model/foldingnet.yaml
+
+name: FoldingNet
+feat_dims: 512
+k: 16
+grid_size: 45

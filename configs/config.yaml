@@ -1,0 +1,18 @@
+# configs/config.yaml
+
+defaults:
+  - dataset: 3dcell
+  - model: foldingnet
+  - training: default
+  - _self_
+
+# global variables
+project_name: "FoldingNet_3DCell"
+seed: 42
+
+hydra:
+  run:
+    dir: outputs/${dataset.name}/${model.name}/lr_${training.lr}_k_${model.k}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: lr_${training.lr}_k_${model.k}
