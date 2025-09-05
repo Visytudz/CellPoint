@@ -33,7 +33,7 @@ class Trainer:
 
         # Instantiate components
         self.train_loader = self._create_dataloader("train")
-        self.val_loader = self._create_dataloader("val")
+        self.val_loader = self._create_dataloader("train")
         self.model = self._build_model().to(self.device)
         self.loss_fn = ChamferLoss()
         self.optimizer = optim.Adam(
