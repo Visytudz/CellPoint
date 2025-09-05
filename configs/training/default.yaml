@@ -21,3 +21,4 @@ wandb:
   entity: visytudz
   log: true
   log_freq: 100
+  mode: "offline"  # options: "online", "offline", "disabled"

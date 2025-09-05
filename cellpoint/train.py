@@ -235,7 +235,7 @@ class Trainer:
         log.info("Training finished.")
 
 
-@hydra.main(version_base=None, config_path="configs", config_name="config")
+@hydra.main(version_base=None, config_path="../configs", config_name="config")
 def main(cfg: DictConfig) -> None:
     log.info(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
     if cfg.training.wandb.log:
@@ -243,6 +243,7 @@ def main(cfg: DictConfig) -> None:
             project=cfg.training.wandb.project,
             entity=cfg.training.wandb.entity,
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
+            mode=cfg.training.wandb.mode,
         )
 
     trainer = Trainer(cfg)
