@@ -5,7 +5,7 @@ from utils import knn, local_cov, local_maxpool
 
 
 class GraphLayer(nn.Module):
-    """A single graph layer, refactored to use 1x1 Convs instead of Linear."""
+    """A single graph layer."""
 
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()

@@ -53,7 +53,7 @@ class Dataset(data.Dataset):
         random_translate: bool = False,
     ) -> None:
         """
-        Initialize the dataset.
+        Initialize the dataset with lazy loading.
 
         Parameters
         ----------
@@ -89,21 +89,22 @@ class Dataset(data.Dataset):
         self.random_jitter: bool = random_jitter
         self.random_translate: bool = random_translate
 
-        self.path_h5py_all: List[str] = []
         # Load metadata from the JSON file
         self._load_metadata()
         # Get the paths of h5 files for all splits
-        for split in self.split:
-            self._get_path(split)
+        self.path_h5py_all: List[str] = []
+        for s in self.split:
+            self._get_path(s)
         if not self.path_h5py_all:
             raise FileNotFoundError(
                 f"No HDF5 files found for split '{self.split}' in '{self.root}'. "
                 f"Please check the directory structure."
             )
 
-        # Load the data from h5 files and json files
-        data_list, label_list, id_list = self._load_h5py(self.path_h5py_all)
-        self.data: NDArray[np.float32] = np.concatenate(data_list, axis=0)  # (B, N, 3)
+        # self.datapoints will store tuples of (h5_file_path, index_within_file)
+        self.datapoints: List[Tuple[str, int]] = []
+        # Labels and IDs are small, so we can load them for easier filtering.
+        label_list, id_list = self._load_metadata_from_h5(self.path_h5py_all)
         self.label: NDArray[np.int64] = np.concatenate(label_list, axis=0)  # (B, 1)
         self.id: NDArray[np.str_] = np.concatenate(id_list, axis=0)  # (B, )
         self.name: NDArray[np.str_] = np.array(
@@ -112,11 +113,14 @@ class Dataset(data.Dataset):
 
         # Filter the data by class choice
         if self.class_choice is not None:
-            indices = self.name == self.class_choice  # (B, )
-            self.data = self.data[indices]
-            self.label = self.label[indices]
-            self.id = self.id[indices]
-            self.name = self.name[indices]
+            indices_to_keep = self.name == self.class_choice
+            # Filter the index, labels, and ids
+            self.datapoints = [
+                dp for i, dp in enumerate(self.datapoints) if indices_to_keep[i]
+            ]
+            self.label = self.label[indices_to_keep]
+            self.id = self.id[indices_to_keep]
+            self.name = self.name[indices_to_keep]
 
     def _load_metadata(self) -> None:
         """Loads metadata from metadata.json located in the dataset's root directory."""
@@ -144,27 +148,30 @@ class Dataset(data.Dataset):
         self.path_h5py_all.extend(sorted(glob(hdf5_pattern)))
         return
 
-    def _load_h5py(self, path: List[str]) -> Tuple[
-        List[NDArray[np.float32]],
-        List[NDArray[np.int64]],
-        List[NDArray[np.str_]],
-    ]:
-        """Loads data from a list of HDF5 files."""
-        all_data: List[NDArray[np.float32]] = []
+    def _load_metadata_from_h5(
+        self, paths: List[str]
+    ) -> Tuple[List[NDArray[np.int64]], List[NDArray[np.str_]]]:
+        """
+        Loads only labels and IDs from HDF5 files and builds the data index.
+        The actual point cloud data is NOT loaded here.
+        """
         all_label: List[NDArray[np.int64]] = []
         all_id: List[NDArray[np.str_]] = []
-        for h5_name in path:
-            with h5py.File(h5_name, "r") as f:
-                data = f["data"][:].astype("float32")  # (B, N, 3)
-                label = f["label"][:].astype("int64")  # (B, 1)
+        for h5_path in paths:
+            with h5py.File(h5_path, "r") as f:
+                num_points_in_file = f["data"].shape[0]
+
+                # Build the index for lazy loading
+                for i in range(num_points_in_file):
+                    self.datapoints.append((h5_path, i))
+
+                # Load labels and IDs
+                all_label.append(f["label"][:].astype("int64"))
                 if "id" in f:
-                    id = f["id"][:].astype("str")  # (B, )
+                    all_id.append(f["id"][:].astype("str"))
                 else:
-                    id = np.array([""] * data.shape[0])  # (B, )
-                all_data.append(data)
-                all_label.append(label)
-                all_id.append(id)
-        return all_data, all_label, all_id
+                    all_id.append(np.array([""] * num_points_in_file))
+        return all_label, all_id
 
     def to_ply(self, item: int, filename: str) -> None:
         """
@@ -177,9 +184,12 @@ class Dataset(data.Dataset):
         filename : str
             The path to save the PLY file.
         """
-        num_points = self.data[item].shape[0]
+        # *** MODIFICATION: Load a single point cloud on demand ***
+        h5_path, index_in_file = self.datapoints[item]
+        with h5py.File(h5_path, "r") as f:
+            point_cloud = f["data"][index_in_file]
 
-        # Create the PLY header
+        num_points = point_cloud.shape[0]
         header = [
             "ply",
             "format ascii 1.0",
@@ -194,12 +204,9 @@ class Dataset(data.Dataset):
         output_dir = os.path.dirname(filename)
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir)
-
-        # Write the header and data to the file
         with open(filename, "w") as f:
             f.write("\n".join(header) + "\n")
-            np.savetxt(f, self.data[item], fmt="%.6f")
-
+            np.savetxt(f, point_cloud, fmt="%.6f")
         print(f"Point cloud saved to {filename}")
 
     def __getitem__(
@@ -209,10 +216,13 @@ class Dataset(data.Dataset):
         | Tuple[torch.Tensor, torch.Tensor, str]
         | Tuple[torch.Tensor, torch.Tensor, str, str]
     ):
-        """Retrieves a single data point from the dataset."""
-        point_set = self.data[item][: self.num_points]  # (N, 3)
-        label = self.label[item]  # (1, )
+        """Retrieves a single data point from the dataset using lazy loading."""
+        h5_path, index_in_file = self.datapoints[item]
+        with h5py.File(h5_path, "r") as f:
+            point_set = f["data"][index_in_file][: self.num_points].astype(np.float32)
+        label = self.label[item]  # Get pre-loaded label
 
+        # Data augmentation
         if self.random_rotate:
             point_set = rotate_pointcloud(point_set)
         if self.random_jitter:
@@ -220,11 +230,9 @@ class Dataset(data.Dataset):
         if self.random_translate:
             point_set = translate_pointcloud(point_set)
 
-        # convert numpy array to pytorch Tensor
-        point_set_tensor = torch.from_numpy(point_set)  # (N, 3)
-        label_tensor = torch.from_numpy(label)  # (1, )
+        point_set_tensor = torch.from_numpy(point_set)
+        label_tensor = torch.from_numpy(label)
 
-        # Prepare return values based on load flags
         result = [point_set_tensor, label_tensor]
         if self.load_name:
             result.append(str(self.name[item]))
@@ -235,7 +243,7 @@ class Dataset(data.Dataset):
 
     def __len__(self) -> int:
         """Returns the total number of samples in the dataset."""
-        return self.data.shape[0]
+        return len(self.datapoints)
 
 
 if __name__ == "__main__":
@@ -252,5 +260,7 @@ if __name__ == "__main__":
         random_rotate=True,
         random_jitter=True,
         random_translate=True,
+        # class_choice="cancerous"
     )
+    print(f"Dataset size: {len(dataset)}")
     print(dataset[15])
