@@ -11,6 +11,8 @@ project_name: "FoldingNet_3DCell"
 seed: 42
 
 hydra:
+  job:
+    chdir: true
   run:
     dir: outputs/${dataset.name}/${model.name}/lr_${training.lr}_k_${model.k}
   sweep:

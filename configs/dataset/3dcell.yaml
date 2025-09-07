@@ -1,5 +1,5 @@
 # configs/dataset/3dcell.yaml
 
 name: 3dcell
-root: "datasets"
+root: "/home/verve/Project/research/CellPoint/datasets"
 num_points: 20480
