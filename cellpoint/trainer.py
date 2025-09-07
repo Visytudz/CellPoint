@@ -69,6 +69,10 @@ class Trainer:
             dataset_name=self.cfg.dataset.name,
             split=[split],
             num_points=self.cfg.dataset.num_points,
+            normalize=self.cfg.dataset.normalize,
+            random_jitter=self.cfg.dataset.random_jitter,
+            random_rotate=self.cfg.dataset.random_rotate,
+            random_translate=self.cfg.dataset.random_translate,
         )
         return DataLoader(
             dataset,

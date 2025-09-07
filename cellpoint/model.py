@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 
-from utils import knn, local_cov, local_maxpool
+from utils import knn_block as knn
+from utils import local_cov, local_maxpool
 
 
 class GraphLayer(nn.Module):

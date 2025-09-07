@@ -9,6 +9,23 @@ from numpy.typing import NDArray
 from typing import List, Tuple, Dict, Optional, Any
 
 
+def normalize_to_unit_sphere(
+    pointcloud: np.ndarray[np.float32],
+) -> np.ndarray[np.float32]:
+    """Normalizes a point cloud to fit within a unit sphere."""
+    # Center the point cloud
+    centroid = np.mean(pointcloud, axis=0)  # (3,)
+    pointcloud_centered = pointcloud - centroid  # (N, 3)
+
+    # Scale to fit within unit sphere
+    max_dist = np.max(np.sqrt(np.sum(pointcloud_centered**2, axis=1)))  # (N,)
+    scale_factor = 1.0 / max_dist if max_dist > 1e-6 else 1.0
+
+    normalized_pointcloud = pointcloud_centered * scale_factor  # (N, 3)
+
+    return normalized_pointcloud
+
+
 def translate_pointcloud(pointcloud: NDArray[np.float32]) -> NDArray[np.float32]:
     """Applies random scaling and translation to a point cloud."""
     xyz1 = np.random.uniform(low=2.0 / 3.0, high=3.0 / 2.0, size=[3])
@@ -48,6 +65,7 @@ class Dataset(data.Dataset):
         split: list[str] = ["train"],
         load_name: bool = False,
         load_id: bool = False,
+        normalize: bool = True,
         random_rotate: bool = False,
         random_jitter: bool = False,
         random_translate: bool = False,
@@ -71,6 +89,8 @@ class Dataset(data.Dataset):
             Whether to load the label name of the dataset.
         load_id : bool, optional
             Whether to load the id of the dataset.
+        normalize : bool, optional
+            Whether to normalize the point cloud.
         random_rotate : bool, optional
             Whether to apply random rotation to the dataset.
         random_jitter : bool, optional
@@ -85,6 +105,7 @@ class Dataset(data.Dataset):
         self.split: list[str] = split
         self.load_name: bool = load_name
         self.load_id: bool = load_id
+        self.normalize: bool = normalize
         self.random_rotate: bool = random_rotate
         self.random_jitter: bool = random_jitter
         self.random_translate: bool = random_translate
@@ -213,6 +234,8 @@ class Dataset(data.Dataset):
         h5_path, index_in_file = self.datapoints[item]
         with h5py.File(h5_path, "r") as f:
             point_set = f["data"][index_in_file][: self.num_points].astype(np.float32)
+        if self.normalize:
+            point_set = normalize_to_unit_sphere(point_set)
         label = self.label[item]  # Get pre-loaded label
 
         # Data augmentation
