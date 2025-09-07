@@ -6,8 +6,7 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import hydra
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 import wandb
 
 from dataset import Dataset
@@ -18,7 +17,7 @@ log = logging.getLogger(__name__)
 
 
 class Trainer:
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, output_dir: str):
         """
         Initializes the Trainer.
 
@@ -26,14 +25,17 @@ class Trainer:
         ----------
         cfg : DictConfig
             The Hydra configuration object.
+        output_dir : str
+            The directory to save checkpoints and other artifacts.
         """
         self.cfg = cfg
+        self.output_dir = Path(output_dir)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._setup_reproducibility()
 
         # Instantiate components
         self.train_loader = self._create_dataloader("train")
-        self.val_loader = self._create_dataloader("train") # TODO: change to val
+        self.val_loader = self._create_dataloader("train")  # TODO: change to val
         self.model = self._build_model().to(self.device)
         self.loss_fn = ChamferLoss()
         self.optimizer = optim.Adam(
@@ -153,7 +155,7 @@ class Trainer:
         """Saves the model checkpoint if the validation loss improves."""
         if val_loss < self.best_val_loss:
             self.best_val_loss = val_loss
-            checkpoint_path = "best_model.pth"
+            checkpoint_path = self.output_dir / "best_model.pth"
             torch.save(
                 {
                     "epoch": self.epoch,
@@ -174,7 +176,7 @@ class Trainer:
 
     def _save_last_checkpoint(self):
         """Saves the latest model state for resuming training."""
-        checkpoint_path = "last_model.pth"
+        checkpoint_path = self.output_dir / "last_model.pth"
         torch.save(
             {
                 "epoch": self.epoch,
@@ -233,26 +235,3 @@ class Trainer:
             self._save_last_checkpoint()
 
         log.info("Training finished.")
-
-
-@hydra.main(version_base=None, config_path="../configs", config_name="config")
-def main(cfg: DictConfig) -> None:
-    log.info(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
-    if cfg.training.wandb.log:
-        wandb.init(
-            project=cfg.training.wandb.project,
-            entity=cfg.training.wandb.entity,
-            config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
-            mode=cfg.training.wandb.mode,
-        )
-
-    trainer = Trainer(cfg)
-    trainer.fit()
-
-    if cfg.training.wandb.log:
-        wandb.finish()
-    log.info("Process finished.")
-
-
-if __name__ == "__main__":
-    main()
