@@ -124,8 +124,8 @@ class Trainer:
             self.train_loader, desc=f"Epoch {self.epoch} Training", leave=False
         )
 
-        for points, _ in progress_bar:
-            points = points.to(self.device)
+        for batch in progress_bar:
+            points = batch["points"].to(self.device)
             reconstructed_points = self.model(points)
             loss = self.loss_fn(points, reconstructed_points)
 
@@ -143,8 +143,8 @@ class Trainer:
         self.model.eval()
         total_loss = 0.0
         with torch.no_grad():
-            for points, _ in self.val_loader:
-                points = points.to(self.device)
+            for batch in self.val_loader:
+                points = batch["points"].to(self.device)
                 reconstructed_points = self.model(points)
                 loss = self.loss_fn(points, reconstructed_points)
                 total_loss += loss.item()

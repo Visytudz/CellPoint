@@ -23,7 +23,7 @@ def main(cfg: DictConfig) -> None:
     output_dir = os.getcwd()
     log.info(f"Working directory for this run: {output_dir}")
 
-    trainer = Trainer(cfg)
+    trainer = Trainer(cfg, output_dir=output_dir)
     trainer.fit()
 
     if cfg.training.wandb.log:

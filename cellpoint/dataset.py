@@ -6,7 +6,7 @@ import numpy as np
 from glob import glob
 import torch.utils.data as data
 from numpy.typing import NDArray
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Any
 
 
 def translate_pointcloud(pointcloud: NDArray[np.float32]) -> NDArray[np.float32]:
@@ -184,7 +184,6 @@ class Dataset(data.Dataset):
         filename : str
             The path to save the PLY file.
         """
-        # *** MODIFICATION: Load a single point cloud on demand ***
         h5_path, index_in_file = self.datapoints[item]
         with h5py.File(h5_path, "r") as f:
             point_cloud = f["data"][index_in_file]
@@ -209,13 +208,7 @@ class Dataset(data.Dataset):
             np.savetxt(f, point_cloud, fmt="%.6f")
         print(f"Point cloud saved to {filename}")
 
-    def __getitem__(
-        self, item: int
-    ) -> (
-        Tuple[torch.Tensor, torch.Tensor]
-        | Tuple[torch.Tensor, torch.Tensor, str]
-        | Tuple[torch.Tensor, torch.Tensor, str, str]
-    ):
+    def __getitem__(self, item: int) -> Dict[str, Any]:
         """Retrieves a single data point from the dataset using lazy loading."""
         h5_path, index_in_file = self.datapoints[item]
         with h5py.File(h5_path, "r") as f:
@@ -233,13 +226,13 @@ class Dataset(data.Dataset):
         point_set_tensor = torch.from_numpy(point_set)
         label_tensor = torch.from_numpy(label)
 
-        result = [point_set_tensor, label_tensor]
+        sample = {"points": point_set_tensor, "label": label_tensor}
         if self.load_name:
-            result.append(str(self.name[item]))
+            sample["name"] = str(self.name[item])
         if self.load_id:
-            result.append(str(self.id[item]))
+            sample["id"] = str(self.id[item])
 
-        return tuple(result)
+        return sample
 
     def __len__(self) -> int:
         """Returns the total number of samples in the dataset."""
