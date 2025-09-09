@@ -15,8 +15,11 @@ def main(cfg: DictConfig) -> None:
     if cfg.training.wandb.log:
         wandb.init(
             project=cfg.training.wandb.project,
+            name=cfg.training.wandb.name,
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
             mode=cfg.training.wandb.mode,
+            id=cfg.training.wandb.id,
+            resume=cfg.training.wandb.resume,
         )
 
     output_dir = os.getcwd()

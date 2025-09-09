@@ -21,7 +21,10 @@ resume_training: false
 
 # Weights & Biases (W&B) logging configuration
 wandb:
+  log: true # enable or disable W&B logging
   project: "CellPoint"
-  log: true
-  log_freq: 100
+  name: null # run name, use null for auto-generated
+  id: null # use null for new run, or specify an ID to resume
+  resume: "allow" # options: "never", "must", "allow"
   mode: "offline"  # options: "online", "offline", "disabled"
+  log_freq: 100 # log every n steps
