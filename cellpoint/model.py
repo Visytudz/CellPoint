@@ -82,7 +82,9 @@ class FoldingNetEncoder(nn.Module):
         features_cov = local_cov(pts_t, idx)  # (B, 12, N)
         features_mlp1 = self.mlp1(features_cov)  # (B, 64, N)
 
+        idx = knn(features_mlp1, k=self.k)  # (B, N, k)
         graph_features1 = self.graph_layer1(features_mlp1, idx)  # (B, 128, N)
+        idx = knn(graph_features1, k=self.k)
         graph_features2 = self.graph_layer2(graph_features1, idx)  # (B, 1024, N)
 
         features_global, _ = torch.max(graph_features2, 2, keepdim=True)  # (B, 1024, 1)

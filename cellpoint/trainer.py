@@ -228,6 +228,7 @@ class Trainer:
                     "epoch": self.epoch,
                     "model_state_dict": self.model.state_dict(),
                     "optimizer_state_dict": self.optimizer.state_dict(),
+                    "scheduler_state_dict": self.scheduler.state_dict(),
                     "loss": self.best_val_loss,
                 },
                 checkpoint_path,
