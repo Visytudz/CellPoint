@@ -14,7 +14,7 @@ hydra:
   job:
     chdir: true
   run:
-    dir: outputs/${dataset.name}/${model.name}/lr_${training.lr}_k_${model.k}
+    dir: outputs/${dataset.name}/${model.name}/k${model.k}_feat${model.feat_dims}_grid${model.grid_size}
   sweep:
     dir: multirun/${now:%Y-%m-%d_%H-%M-%S}
     subdir: lr_${training.lr}_k_${model.k}

@@ -13,7 +13,7 @@ val_every_n_epochs: 25
 
 # Visualization settings
 visualize_every_n_epochs: 10
-visualization_indices: [0, 1, 2]
+visualization_indices: [0, 1, 71, 72]
 
 # Checkpoint settings
 checkpoint_path: null
