@@ -6,3 +6,4 @@ scenes/
 outputs/
 wandb/
 example.ipynb
+run.sh

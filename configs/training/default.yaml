@@ -9,10 +9,10 @@ min_lr: 1e-6
 
 # other settings
 num_workers: 4
-val_every_n_epochs: 25
+val_every_n_epochs: 50
 
 # Visualization settings
-visualize_every_n_epochs: 10
+visualize_every_n_epochs: 50
 visualization_indices: [0, 1, 71, 72]
 
 # Checkpoint settings
