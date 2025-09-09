@@ -53,6 +53,7 @@ class Trainer:
         self.epoch = 0
         self.best_val_loss = float("inf")
         self._load_checkpoint()
+        self.visualization_batch = self._prepare_visualization_batch()
 
     def _setup_reproducibility(self):
         """Sets random seeds for reproducibility."""
@@ -120,6 +121,32 @@ class Trainer:
         else:
             log.info("Loaded model weights only for fine-tuning.")
 
+    def _prepare_visualization_batch(self):
+        """Prepares a fixed batch of data for visualization."""
+        indices = self.cfg.training.get("visualization_indices")
+        if not indices:
+            log.info(
+                "No visualization indices specified. Visualization will be disabled."
+            )
+            return None
+
+        log.info(f"Preparing visualization samples for indices: {indices}")
+
+        # Ensure indices are valid
+        val_dataset = self.val_loader.dataset
+        valid_indices = [i for i in indices if i < len(val_dataset)]
+        if len(valid_indices) != len(indices):
+            log.warning(
+                f"Some visualization indices were out of bounds. Using valid indices: {valid_indices}"
+            )
+        if not valid_indices:
+            return None
+
+        # Retrieve the specific samples and stack them into a single batch
+        points_list = [val_dataset[i]["points"] for i in valid_indices]
+        batch_tensor = torch.stack(points_list).to(self.device)  # (B, N, 3)
+        return batch_tensor
+
     def _train_epoch(self) -> float:
         """Runs a single training epoch."""
         self.model.train()
@@ -154,6 +181,42 @@ class Trainer:
                 total_loss += loss.item()
 
         return total_loss / len(self.val_loader)
+
+    def _visualize_reconstructions(self):
+        """Uses the pre-selected fixed batch to log reconstructions to W&B."""
+        if self.visualization_batch is None:
+            return
+        log.info(f"--- Visualizing reconstructions @ Epoch {self.epoch} ---")
+        self.model.eval()
+        with torch.no_grad():
+            reconstructed_points = self.model(self.visualization_batch)
+
+        point_clouds_to_log = []
+        captions = []
+        # Iterate through the samples in the fixed batch
+        for i in range(self.visualization_batch.shape[0]):
+            ground_truth_pc = self.visualization_batch[i].cpu().numpy()
+            reconstructed_pc = reconstructed_points[i].cpu().numpy()
+            # Add ground truth and reconstruction for each sample
+            point_clouds_to_log.append(
+                wandb.Object3D({"type": "lidar/beta", "points": ground_truth_pc})
+            )
+            point_clouds_to_log.append(
+                wandb.Object3D({"type": "lidar/beta", "points": reconstructed_pc})
+            )
+            # Create corresponding captions
+            original_index = self.cfg.training.visualization_indices[i]
+            captions.append(f"Sample {original_index} - Ground Truth")
+            captions.append(f"Sample {original_index} - Reconstruction")
+
+        # Log the combined list to W&B
+        wandb.log(
+            {
+                "Point_Cloud_Reconstruction": point_clouds_to_log,
+                "captions": captions,
+                "epoch": self.epoch,
+            }
+        )
 
     def _save_best_checkpoint(self, val_loss: float):
         """Saves the model checkpoint if the validation loss improves."""
@@ -209,6 +272,7 @@ class Trainer:
         for epoch in range(self.epoch + 1, self.cfg.training.epochs + 1):
             self.epoch = epoch
 
+            # training step
             train_loss = self._train_epoch()
             log.info(
                 f"Epoch {self.epoch}/{self.cfg.training.epochs} | Train Loss: {train_loss:.4f}"
@@ -222,6 +286,7 @@ class Trainer:
                     }
                 )
 
+            # validation step
             should_validate = (self.cfg.training.val_every_n_epochs > 0) and (
                 (self.epoch % self.cfg.training.val_every_n_epochs == 0)
                 or (self.epoch == self.cfg.training.epochs)
@@ -235,6 +300,18 @@ class Trainer:
                     wandb.log({"epoch": self.epoch, "val_loss": val_loss})
                 self._save_best_checkpoint(val_loss)
 
+            # visualization step
+            if self.cfg.training.wandb.log:
+                should_visualize = (
+                    self.cfg.training.visualize_every_n_epochs > 0
+                ) and (
+                    (self.epoch % self.cfg.training.visualize_every_n_epochs == 0)
+                    or (self.epoch == self.cfg.training.epochs)
+                )
+                if should_visualize:
+                    self._visualize_reconstructions()
+
+            # scheduler step
             self.scheduler.step()
             self._save_last_checkpoint()
 
