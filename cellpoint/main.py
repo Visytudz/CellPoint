@@ -15,7 +15,6 @@ def main(cfg: DictConfig) -> None:
     if cfg.training.wandb.log:
         wandb.init(
             project=cfg.training.wandb.project,
-            entity=cfg.training.wandb.entity,
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
             mode=cfg.training.wandb.mode,
         )
