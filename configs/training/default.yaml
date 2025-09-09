@@ -2,17 +2,17 @@
 
 # hyperparameters
 batch_size: 8
-epochs: 20
+epochs: 1000
 lr: 0.0001
 weight_decay: 1e-6
 min_lr: 1e-6
 
 # other settings
 num_workers: 4
-val_every_n_epochs: 10
+val_every_n_epochs: 25
 
 # Visualization settings
-visualize_every_n_epochs: 10
+visualize_every_n_epochs: 25
 visualization_indices: [0, 1, 2]
 
 # Checkpoint settings
@@ -26,5 +26,5 @@ wandb:
   name: null # run name, use null for auto-generated
   id: null # use null for new run, or specify an ID to resume
   resume: "allow" # options: "never", "must", "allow"
-  mode: "offline"  # options: "online", "offline", "disabled"
-  log_freq: 100 # log every n steps
+  mode: "online"  # options: "online", "offline", "disabled"
+  log_freq: 10 # log every n steps
