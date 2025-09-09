@@ -1,0 +1,9 @@
+# configs/dataset/3dcell.yaml
+
+name: "2048"
+root: "/home/verve/Project/research/CellPoint/datasets/3dcell"
+num_points: 2048
+normalize: true
+random_jitter: false
+random_rotate: false
+random_translate: false

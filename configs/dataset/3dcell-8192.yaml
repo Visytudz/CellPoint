@@ -1,8 +1,8 @@
 # configs/dataset/3dcell.yaml
 
-name: 3dcell
-root: "/home/verve/Project/research/CellPoint/datasets"
-num_points: 20480
+name: "8192"
+root: "/home/verve/Project/research/CellPoint/datasets/3dcell"
+num_points: 8192
 normalize: true
 random_jitter: false
 random_rotate: false

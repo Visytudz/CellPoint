@@ -1,9 +1,9 @@
 # configs/training/default.yaml
 
 # hyperparameters
-batch_size: 8
-epochs: 1000
-lr: 0.0001
+batch_size: 48
+epochs: 2000
+lr: 0.001
 weight_decay: 1e-6
 min_lr: 1e-6
 
@@ -12,7 +12,7 @@ num_workers: 4
 val_every_n_epochs: 25
 
 # Visualization settings
-visualize_every_n_epochs: 25
+visualize_every_n_epochs: 10
 visualization_indices: [0, 1, 2]
 
 # Checkpoint settings
