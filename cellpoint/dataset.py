@@ -194,7 +194,7 @@ class Dataset(data.Dataset):
                     all_id.append(np.array([""] * num_points_in_file))
         return all_label, all_id
 
-    def to_ply(self, item: int, filename: str) -> None:
+    def to_ply(self, item: int, filename: str, normalize: bool) -> None:
         """
         Saves a point cloud to a PLY file in ASCII format.
 
@@ -204,10 +204,14 @@ class Dataset(data.Dataset):
             The index of the data point to save.
         filename : str
             The path to save the PLY file.
+        normalize : bool
+            Whether to normalize the point cloud before saving.
         """
         h5_path, index_in_file = self.datapoints[item]
         with h5py.File(h5_path, "r") as f:
             point_cloud = f["data"][index_in_file]
+        if normalize:
+            point_cloud = normalize_to_unit_sphere(point_cloud)
 
         num_points = point_cloud.shape[0]
         header = [

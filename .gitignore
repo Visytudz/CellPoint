@@ -5,3 +5,4 @@ image/
 scenes/
 outputs/
 wandb/
+example.ipynb
