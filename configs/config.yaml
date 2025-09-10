@@ -1,7 +1,7 @@
 # configs/config.yaml
 
 defaults:
-  - dataset: 3dcell-2048
+  - dataset: 3dcell-3072
   - model: foldingnet
   - training: default
   - _self_

@@ -5,7 +5,7 @@ batch_size: 48
 epochs: 2000
 lr: 0.001
 weight_decay: 1e-6
-min_lr: 1e-6
+min_lr: 1e-7
 
 # other settings
 num_workers: 4
