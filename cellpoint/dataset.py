@@ -8,6 +8,8 @@ import torch.utils.data as data
 from numpy.typing import NDArray
 from typing import List, Tuple, Dict, Optional, Any
 
+from utils import save_ply
+
 
 def normalize_to_unit_sphere(
     pointcloud: np.ndarray[np.float32],
@@ -209,28 +211,10 @@ class Dataset(data.Dataset):
         """
         h5_path, index_in_file = self.datapoints[item]
         with h5py.File(h5_path, "r") as f:
-            point_cloud = f["data"][index_in_file]
+            point_cloud = f["data"][index_in_file]  # (N, 3)
         if normalize:
             point_cloud = normalize_to_unit_sphere(point_cloud)
-
-        num_points = point_cloud.shape[0]
-        header = [
-            "ply",
-            "format ascii 1.0",
-            f"element vertex {num_points}",
-            "property float x",
-            "property float y",
-            "property float z",
-            "end_header",
-        ]
-
-        # Ensure the output directory exists
-        output_dir = os.path.dirname(filename)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        with open(filename, "w") as f:
-            f.write("\n".join(header) + "\n")
-            np.savetxt(f, point_cloud, fmt="%.6f")
+        save_ply(point_cloud, filename)
         print(f"Point cloud saved to {filename}")
 
     def __getitem__(self, item: int) -> Dict[str, Any]:
