@@ -1,0 +1,7 @@
+name: "shapenetcorev2"
+root: "/home/verve/Project/research/CellPoint/datasets"
+num_points: 2048
+normalize: true
+random_jitter: true
+random_rotate: true
+random_translate: true

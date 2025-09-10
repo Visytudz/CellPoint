@@ -35,7 +35,7 @@ class Trainer:
 
         # Instantiate components
         self.train_loader = self._create_dataloader("train")
-        self.val_loader = self._create_dataloader("train")  # TODO: change to val
+        self.val_loader = self._create_dataloader("val")
         self.model = self._build_model().to(self.device)
         self.loss_fn = ChamferLoss()
         self.optimizer = optim.Adam(
@@ -88,6 +88,8 @@ class Trainer:
             feat_dims=self.cfg.model.feat_dims,
             k=self.cfg.model.k,
             grid_size=self.cfg.model.grid_size,
+            grid_type=self.cfg.model.grid_type,
+            encoder_type=self.cfg.model.encoder_type,
         )
 
     def _load_checkpoint(self):
