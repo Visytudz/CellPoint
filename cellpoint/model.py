@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from utils import knn_block as knn
 from utils import local_cov, local_maxpool, get_neighbors
@@ -229,23 +230,45 @@ class FoldingBlock(nn.Module):
 class FoldingNetDecoder(nn.Module):
     """The folding-based decoder for FoldingNet"""
 
-    def __init__(self, feat_dims: int = 512, grid_size: int = 45) -> None:
+    def __init__(
+        self, feat_dims: int = 512, grid_size: int = 45, grid_type: str = "plane"
+    ) -> None:
         super().__init__()
         self.M = grid_size**2
         self.feat_dims = feat_dims
+        self.grid_type = grid_type
 
-        self.folding1 = FoldingBlock(in_channels=2, feat_dims=self.feat_dims)
+        if self.grid_type == "plane":
+            first_folding_in_channels = 2
+        elif self.grid_type == "sphere":
+            first_folding_in_channels = 3
+        else:
+            raise ValueError(
+                f"Unknown grid_type: {grid_type}. Choose 'plane' or 'sphere'."
+            )
+
+        self.folding1 = FoldingBlock(
+            in_channels=first_folding_in_channels, feat_dims=self.feat_dims
+        )
         self.folding2 = FoldingBlock(in_channels=3, feat_dims=self.feat_dims)
 
         self._create_and_register_grid(grid_size)
 
     def _create_and_register_grid(self, grid_size: int) -> None:
-        """Creates the 2D grid points and registers them as a buffer."""
-        x_coords = torch.linspace(-0.3, 0.3, grid_size)  # (grid_size,)
-        y_coords = torch.linspace(-0.3, 0.3, grid_size)  # (grid_size,)
-        grid_x, grid_y = torch.meshgrid(x_coords, y_coords, indexing="ij")
-        grid_points = torch.stack([grid_x.flatten(), grid_y.flatten()], dim=0)  # (2, M)
-        self.register_buffer("grid", grid_points.unsqueeze(0))  # (1, 2, M)
+        """Creates the 2D or 3D grid points and registers them as a buffer."""
+        if self.grid_type == "plane":
+            x_coords = torch.linspace(-0.3, 0.3, grid_size)  # (grid_size,)
+            y_coords = torch.linspace(-0.3, 0.3, grid_size)  # (grid_size,)
+            grid_x, grid_y = torch.meshgrid(x_coords, y_coords, indexing="ij")
+            grid_points = torch.stack(
+                [grid_x.flatten(), grid_y.flatten()], dim=0
+            )  # (2, M)
+            self.register_buffer("grid", grid_points.unsqueeze(0))  # (1, 2, M)
+        elif self.grid_type == "sphere":
+            points = torch.randn(self.M, 3)  # (M, 3)
+            points = F.normalize(points, p=2, dim=1)  # (M, 3)
+            grid_points = points.transpose(0, 1)  # (3, M)
+            self.register_buffer("grid", grid_points.unsqueeze(0))  # (1, 3, M)
 
     def forward(self, codeword: torch.Tensor) -> torch.Tensor:
         """
@@ -273,11 +296,45 @@ class FoldingNetDecoder(nn.Module):
         return reconstruction.transpose(2, 1)  # (B, M, 3)
 
 
-class FoldingNet(nn.Module):
-    def __init__(self, feat_dims: int = 512, k: int = 16, grid_size: int = 45) -> None:
+class Reconstructer(nn.Module):
+    def __init__(
+        self,
+        feat_dims: int = 512,
+        k: int = 16,
+        grid_size: int = 45,
+        grid_type: str = "plane",
+        encoder_type: str = "foldingnet",
+    ) -> None:
+        """
+        Initializes the Autoencoder model.
+
+        Parameters
+        ----------
+        feat_dims : int, optional
+            The dimensionality of the global feature vector (codeword).
+        k : int, optional
+            The number of nearest neighbors, used by both encoders.
+        grid_size : int, optional
+            The grid size for the FoldingNet decoder.
+        grid_type : str, optional
+            The type of initial grid to use: 'plane' or 'sphere'.
+        encoder_type : str, optional
+            The type of encoder to use. Can be 'foldingnet' or 'dgcnn'.
+        """
         super().__init__()
-        self.encoder = FoldingNetEncoder(feat_dims=feat_dims, k=k)
-        self.decoder = FoldingNetDecoder(feat_dims=feat_dims, grid_size=grid_size)
+
+        if encoder_type.lower() == "foldingnet":
+            self.encoder = FoldingNetEncoder(feat_dims=feat_dims, k=k)
+        elif encoder_type.lower() == "dgcnn":
+            self.encoder = DGCNNEncoder(feat_dims=feat_dims, k=k)
+        else:
+            raise ValueError(
+                f"Unknown encoder_type: {encoder_type}. Choose 'foldingnet' or 'dgcnn'."
+            )
+
+        self.decoder = FoldingNetDecoder(
+            feat_dims=feat_dims, grid_size=grid_size, grid_type=grid_type
+        )
 
     def forward(self, point_cloud: torch.Tensor) -> torch.Tensor:
         """
@@ -299,7 +356,7 @@ class FoldingNet(nn.Module):
 
 
 if __name__ == "__main__":
-    model = FoldingNet()
+    model = Reconstructer(encoder_type="foldingnet", grid_type="sphere")
     point_cloud = torch.randn(1, 1024, 3)
     reconstruction = model(point_cloud)
     print(reconstruction.shape)
