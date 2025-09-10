@@ -4,7 +4,7 @@ import wandb
 import logging
 from omegaconf import DictConfig, OmegaConf
 
-from trainer import Trainer
+from cellpoint.train import Trainer
 
 log = logging.getLogger(__name__)
 

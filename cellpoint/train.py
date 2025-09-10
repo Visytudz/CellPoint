@@ -10,7 +10,7 @@ from omegaconf import DictConfig
 import wandb
 
 from dataset import Dataset
-from model import Reconstructer
+from model import Reconstructor
 from loss import ChamferLoss
 
 log = logging.getLogger(__name__)
@@ -84,13 +84,7 @@ class Trainer:
 
     def _build_model(self) -> torch.nn.Module:
         """Builds the FoldingNet model from the configuration."""
-        return Reconstructer(
-            feat_dims=self.cfg.model.feat_dims,
-            k=self.cfg.model.k,
-            grid_size=self.cfg.model.grid_size,
-            grid_type=self.cfg.model.grid_type,
-            encoder_type=self.cfg.model.encoder_type,
-        )
+        return Reconstructor(**self.cfg.model)
 
     def _load_checkpoint(self):
         """Loads a checkpoint to resume training or for fine-tuning."""
