@@ -2,12 +2,110 @@ import torch
 import torch.nn as nn
 
 from utils import knn_block as knn
-from utils import local_cov, local_maxpool
+from utils import local_cov, local_maxpool, get_neighbors
+
+
+class EdgeConv(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, k: int):
+        super().__init__()
+        self.k = k
+        self.mlp = nn.Sequential(
+            nn.Conv2d(in_channels * 2, out_channels, kernel_size=1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.LeakyReLU(negative_slope=0.2),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass for the EdgeConv block.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input features, shape (B, C_in, N).
+
+        Returns
+        -------
+        torch.Tensor
+            Output features after EdgeConv and aggregation, shape (B, C_out, N).
+        """
+        B, C, N = x.shape
+
+        # get edge features
+        idx = knn(x, k=self.k)  # (B, N, k)
+        neighbors = get_neighbors(x, idx)  # (B, N, k, C)
+        central_points = (
+            x.transpose(1, 2).view(B, N, 1, C).expand(-1, -1, self.k, -1)
+        )  # (B, N, k, C)
+        edge_features = torch.cat(
+            [central_points, neighbors - central_points], dim=3
+        )  # (B, N, k, 2*C)
+
+        # apply MLP and aggregate
+        edge_features = edge_features.permute(0, 3, 1, 2).contiguous()  # (B, 2*C, N, k)
+        conv_out = self.mlp(edge_features)  # (B, C_out, N, k)
+        aggregated_features, _ = torch.max(conv_out, dim=3)  # (B, C_out, N)
+
+        return aggregated_features
+
+
+class DGCNNEncoder(nn.Module):
+    """The DGCNN-based Encoder, adapted for reconstruction tasks."""
+
+    def __init__(self, feat_dims: int = 512, k: int = 20) -> None:
+        super().__init__()
+        self.k = k
+        self.feat_dims = feat_dims
+
+        self.conv1 = EdgeConv(in_channels=3, out_channels=64, k=self.k)
+        self.conv2 = EdgeConv(in_channels=64, out_channels=64, k=self.k)
+        self.conv3 = EdgeConv(in_channels=64, out_channels=128, k=self.k)
+        self.conv4 = EdgeConv(in_channels=128, out_channels=256, k=self.k)
+
+        # Final MLP to process concatenated features
+        self.mlp_global = nn.Sequential(
+            nn.Conv1d(64 + 64 + 128 + 256, self.feat_dims, kernel_size=1, bias=False),
+            nn.BatchNorm1d(self.feat_dims),
+            nn.LeakyReLU(negative_slope=0.2),
+        )
+
+    def forward(self, pts: torch.Tensor) -> torch.Tensor:
+        """
+        Encodes a point cloud into a global codeword using DGCNN.
+
+        Parameters
+        ----------
+        pts : torch.Tensor
+            Input point cloud, shape (B, N, 3).
+
+        Returns
+        -------
+        torch.Tensor
+            The global codeword, shape (B, feat_dims, 1).
+        """
+        pts_t = pts.transpose(2, 1).contiguous()  # (B, 3, N)
+
+        # Pass through EdgeConv blocks
+        x1 = self.conv1(pts_t)  # (B, 64, N)
+        x2 = self.conv2(x1)  # (B, 64, N)
+        x3 = self.conv3(x2)  # (B, 128, N)
+        x4 = self.conv4(x3)  # (B, 256, N)
+
+        # Concatenate features from all layers (skip-connections)
+        x_cat = torch.cat((x1, x2, x3, x4), dim=1)  # (B, 512, N)
+
+        # Process with final MLP
+        features_per_point = self.mlp_global(x_cat)  # (B, feat_dims, N)
+
+        # Global max pooling to get the final codeword
+        codeword, _ = torch.max(
+            features_per_point, 2, keepdim=True
+        )  # (B, feat_dims, 1)
+
+        return codeword
 
 
 class GraphLayer(nn.Module):
-    """A single graph layer."""
-
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
         self.mlp = nn.Sequential(
