@@ -132,7 +132,6 @@ class Inferencer:
             all_codewords.append(codeword.squeeze(-1).cpu().numpy())
             all_labels.append(batch["label"].numpy())
             all_ids.extend(batch["id"])  # .extend for list of strings
-            break
 
         # Concatenate results from all batches
         final_recons = np.concatenate(all_recons, axis=0)  # (num_samples, M, 3)

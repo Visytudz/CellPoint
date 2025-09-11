@@ -46,15 +46,20 @@ def jitter_pointcloud(
 
 
 def rotate_pointcloud(pointcloud: NDArray[np.float32]) -> NDArray[np.float32]:
-    """Applies a random rotation around the Y-axis to a point cloud."""
+    """Applies a random 3D rotation to a point cloud."""
+    # Generate a random rotation axis (a unit vector)
+    axis = np.random.rand(3) - 0.5
+    axis /= np.linalg.norm(axis)
+    # Generate a random rotation angle
     theta = np.pi * 2 * np.random.rand()
-    rotation_matrix = np.array(
-        [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
+    # Rodrigues' rotation formula
+    K = np.array(
+        [[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]]
     )
-    pointcloud[:, [0, 2]] = (
-        pointcloud[:, [0, 2]] @ rotation_matrix
-    )  # random rotation (x,z)
-    return pointcloud
+    I = np.identity(3)
+    rotation_matrix = I + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
+
+    return pointcloud @ rotation_matrix.T
 
 
 class HDF5Dataset(data.Dataset):
@@ -261,4 +266,3 @@ if __name__ == "__main__":
     )
     print(f"Dataset size: {len(dataset)}")
     print(dataset[60])
-    dataset.to_ply(60, "test.ply", normalize=True)

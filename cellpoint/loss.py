@@ -8,7 +8,7 @@ class ChamferLoss(nn.Module):
 
     def forward(self, gts: torch.Tensor, preds: torch.Tensor) -> torch.Tensor:
         """
-        The returned loss is a sum over all points and all batches.
+        The returned loss is a mean over all points and all batches.
 
         Parameters
         ----------
