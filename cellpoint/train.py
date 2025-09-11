@@ -38,7 +38,7 @@ class Trainer:
         self.val_loader = self._create_dataloader("val")
         self.model = self._build_model().to(self.device)
         self.loss_fn = ChamferLoss()
-        self.optimizer = optim.Adam(
+        self.optimizer = optim.AdamW(
             self.model.parameters(),
             lr=self.cfg.training.lr,
             weight_decay=self.cfg.training.weight_decay,
