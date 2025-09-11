@@ -9,7 +9,7 @@ from tqdm import tqdm
 from omegaconf import DictConfig
 import wandb
 
-from dataset import Dataset
+from dataset import HDF5Dataset
 from model import Reconstructor
 from loss import ChamferLoss
 
@@ -65,7 +65,7 @@ class Trainer:
     def _create_dataloader(self, split: str) -> DataLoader:
         """Creates a DataLoader for the specified data split."""
         log.info(f"Creating {split} dataloader...")
-        dataset = Dataset(
+        dataset = HDF5Dataset(
             root=self.cfg.dataset.root,
             dataset_name=self.cfg.dataset.name,
             split=[split],

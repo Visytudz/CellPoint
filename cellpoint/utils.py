@@ -182,3 +182,15 @@ def save_ply(points: np.ndarray, filename: str) -> None:
     with open(filename, "w") as f:
         f.write("\n".join(header) + "\n")
         np.savetxt(f, points, fmt="%.6f")
+
+
+def load_ply(file_path: str) -> np.ndarray:
+    """Loads a .ply file into a numpy array."""
+    try:
+        import open3d as o3d
+    except ImportError:
+        raise ImportError(
+            "Please install open3d to load .ply files: pip install open3d"
+        )
+    pcd = o3d.io.read_point_cloud(file_path)
+    return np.asarray(pcd.points).astype(np.float32)

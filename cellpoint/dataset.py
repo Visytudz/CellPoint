@@ -57,7 +57,7 @@ def rotate_pointcloud(pointcloud: NDArray[np.float32]) -> NDArray[np.float32]:
     return pointcloud
 
 
-class Dataset(data.Dataset):
+class HDF5Dataset(data.Dataset):
     def __init__(
         self,
         root: str,
@@ -65,8 +65,6 @@ class Dataset(data.Dataset):
         class_choice: Optional[str] = None,
         num_points: int = 2048,
         split: list[str] = ["train"],
-        load_name: bool = False,
-        load_id: bool = False,
         normalize: bool = True,
         random_rotate: bool = False,
         random_jitter: bool = False,
@@ -87,10 +85,6 @@ class Dataset(data.Dataset):
             The number of points to load.
         split : list[str], optional
             The split of the dataset.
-        load_name : bool, optional
-            Whether to load the label name of the dataset.
-        load_id : bool, optional
-            Whether to load the id of the dataset.
         normalize : bool, optional
             Whether to normalize the point cloud.
         random_rotate : bool, optional
@@ -105,8 +99,6 @@ class Dataset(data.Dataset):
         self.class_choice: Optional[str] = class_choice
         self.num_points: int = num_points
         self.split: list[str] = split
-        self.load_name: bool = load_name
-        self.load_id: bool = load_id
         self.normalize: bool = normalize
         self.random_rotate: bool = random_rotate
         self.random_jitter: bool = random_jitter
@@ -154,9 +146,11 @@ class Dataset(data.Dataset):
         with open(metadata_path, "r") as f:
             metadata = json.load(f)
 
-        self.label2name: List[str] = metadata["label2name"]
+        label2name: List[str] = metadata["label2name"]
+        self.label2name: Dict[int, str] = {i: name for i, name in enumerate(label2name)}
+        self.label2name[-1] = "unlabeled"  # For unlabeled data
         self.name2label: Dict[str, int] = {
-            name: i for i, name in enumerate(self.label2name)
+            name: i for i, name in self.label2name.items()
         }
 
     def _get_path(self, split: str) -> None:
@@ -183,13 +177,14 @@ class Dataset(data.Dataset):
         for h5_path in paths:
             with h5py.File(h5_path, "r") as f:
                 num_points_in_file = f["data"].shape[0]
-
                 # Build the index for lazy loading
                 for i in range(num_points_in_file):
                     self.datapoints.append((h5_path, i))
-
                 # Load labels and IDs
-                all_label.append(f["label"][:].astype("int64"))
+                if "label" in f:
+                    all_label.append(f["label"][:].astype("int64"))
+                else:
+                    all_label.append(np.array([-1] * num_points_in_file))
                 if "id" in f:
                     all_id.append(f["id"][:].astype("str"))
                 else:
@@ -236,12 +231,12 @@ class Dataset(data.Dataset):
 
         point_set_tensor = torch.from_numpy(point_set)
         label_tensor = torch.from_numpy(label)
-
-        sample = {"points": point_set_tensor, "label": label_tensor}
-        if self.load_name:
-            sample["name"] = str(self.name[item])
-        if self.load_id:
-            sample["id"] = str(self.id[item])
+        sample = {
+            "points": point_set_tensor,
+            "label": label_tensor,
+            "name": str(self.name[item]),
+            "id": str(self.id[item]),
+        }
 
         return sample
 
@@ -251,20 +246,19 @@ class Dataset(data.Dataset):
 
 
 if __name__ == "__main__":
-    root = "datasets"
-    dataset_name = "3dcell"
+    root = "datasets/3dcell"
+    dataset_name = "2048"
     split = ["train"]
-    dataset = Dataset(
+    dataset = HDF5Dataset(
         root=root,
         dataset_name=dataset_name,
         num_points=20480,
         split=split,
-        load_name=True,
-        load_id=True,
         random_rotate=True,
         random_jitter=True,
         random_translate=True,
         # class_choice="cancerous"
     )
     print(f"Dataset size: {len(dataset)}")
-    print(dataset[15])
+    print(dataset[60])
+    dataset.to_ply(60, "test.ply", normalize=True)
