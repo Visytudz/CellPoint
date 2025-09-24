@@ -151,7 +151,8 @@ class HDF5Dataset(data.Dataset):
         with open(metadata_path, "r") as f:
             metadata = json.load(f)
 
-        self.label2name: Dict[int, str] = metadata["label2name"]
+        label2name: Dict[str, str] = metadata["label2name"]
+        self.label2name: Dict[int, str] = {int(k): v for k, v in label2name.items()}
         self.label2name[-1] = "unlabeled"  # For unlabeled data
         self.name2label: Dict[str, int] = {
             name: i for i, name in self.label2name.items()
