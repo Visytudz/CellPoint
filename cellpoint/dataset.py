@@ -151,8 +151,7 @@ class HDF5Dataset(data.Dataset):
         with open(metadata_path, "r") as f:
             metadata = json.load(f)
 
-        label2name: List[str] = metadata["label2name"]
-        self.label2name: Dict[int, str] = {i: name for i, name in enumerate(label2name)}
+        self.label2name: Dict[int, str] = metadata["label2name"]
         self.label2name[-1] = "unlabeled"  # For unlabeled data
         self.name2label: Dict[str, int] = {
             name: i for i, name in self.label2name.items()
@@ -259,10 +258,11 @@ if __name__ == "__main__":
         dataset_name=dataset_name,
         num_points=20480,
         split=split,
-        random_rotate=True,
-        random_jitter=True,
-        random_translate=True,
+        random_rotate=False,
+        random_jitter=False,
+        random_translate=False,
         # class_choice="cancerous"
     )
     print(f"Dataset size: {len(dataset)}")
-    print(dataset[60])
+    print(dataset[70])
+    dataset.to_ply(70, "cell01-01.ply", normalize=True)

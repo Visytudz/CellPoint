@@ -1,17 +1,17 @@
-import logging
 import os
+import logging
 from pathlib import Path
 from typing import Tuple
 
 import h5py
-import numpy as np
 import torch
-from torch.utils.data import DataLoader
+import numpy as np
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 
-from utils import load_ply, save_ply
-from dataset import HDF5Dataset, normalize_to_unit_sphere
+from utils import load_ply
 from model import Reconstructor
+from dataset import HDF5Dataset, normalize_to_unit_sphere
 
 log = logging.getLogger(__name__)
 
@@ -158,33 +158,3 @@ class Inferencer:
                 "id", data=np.array(ids, dtype=h5py.special_dtype(vlen=str))
             )
         log.info("HDF5 file saved successfully.")
-
-
-if __name__ == "__main__":
-    my_model_config = {
-        "feat_dims": 512,
-        "k": 16,
-        "grid_size": 45,
-        "grid_type": "plane",
-        "encoder_type": "foldingnet",
-    }
-    inferencer = Inferencer(
-        checkpoint_path="/home/verve/Project/research/CellPoint/outputs/2048/FoldingNet/k16_feat512_grid45/best_model.pth",  # <-- SET YOUR CHECKPOINT PATH
-        model_config=my_model_config,
-        device="cpu",
-    )
-    recon_pc, codeword = inferencer.predict_file(file_path="test.ply")
-    save_ply(recon_pc, "my_recon.ply")
-    np.save("my_codeword.npy", codeword)
-
-    my_dataset = HDF5Dataset(
-        root="/home/verve/Project/research/CellPoint/datasets",
-        dataset_name="shapenetcorev2",
-        split=["test"],
-        num_points=2048,
-        normalize=True,
-    )
-    all_codewords = inferencer.predict_dataset(
-        dataset=my_dataset,
-        output_hdf5_path="all_reconstructions.h5",
-    )
