@@ -1,5 +1,3 @@
-# configs/training/default.yaml
-
 # hyperparameters
 batch_size: 48
 epochs: 2000
@@ -22,7 +20,7 @@ resume_training: false
 # Weights & Biases (W&B) logging configuration
 wandb:
   log: true # enable or disable W&B logging
-  project: "CellPoint"
+  project: ${project_name} # align with project_name in config.yaml
   name: null # run name, use null for auto-generated
   id: null # use null for new run, or specify an ID to resume
   resume: "allow" # options: "never", "must", "allow"

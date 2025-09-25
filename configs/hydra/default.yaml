@@ -1,0 +1,4 @@
+job:
+  chdir: true
+run:
+  dir: outputs/${hydra:job.name}

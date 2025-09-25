@@ -1,0 +1,37 @@
+selected:
+  - intestine
+  - shapenetcorev2
+
+available:
+  intestine:
+    name: "intestine"
+    root: "/home/verve/Project/research/CellPoint/datasets"
+    num_points: 2048
+    normalize: true
+    random_jitter: false
+    random_rotate: false
+    random_translate: false
+  redblood:
+    name: "redblood"
+    root: "/home/verve/Project/research/CellPoint/datasets"
+    num_points: 2048
+    normalize: true
+    random_jitter: false
+    random_rotate: false
+    random_translate: false
+  intrA:
+    name: "intrA"
+    root: "/home/verve/Project/research/CellPoint/datasets"
+    num_points: 2048
+    normalize: true
+    random_jitter: false
+    random_rotate: false
+    random_translate: false
+  shapenetcorev2:
+    name: "shapenetcorev2"
+    root: "/home/verve/Project/research/CellPoint/datasets"
+    num_points: 2048
+    normalize: true
+    random_jitter: true
+    random_rotate: true
+    random_translate: true

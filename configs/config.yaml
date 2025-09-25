@@ -1,20 +1,11 @@
-# configs/config.yaml
-
 defaults:
-  - dataset: shapenetcorev2
+  - dataset: default
   - model: default
   - training: default
+  - hydra: default
   - _self_
 
 # global variables
 project_name: "3DCellPoint"
 seed: 42
 
-hydra:
-  job:
-    chdir: true
-  run:
-    dir: outputs/train/${dataset.name}/${model.encoder_type}/k${model.k}_feat${model.feat_dims}_${model.grid_type}${model.grid_size}
-  sweep:
-    dir: multirun/${now:%Y-%m-%d_%H-%M-%S}
-    subdir: lr_${training.lr}_k_${model.k}

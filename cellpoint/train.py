@@ -4,7 +4,7 @@ from pathlib import Path
 
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from tqdm import tqdm
 from omegaconf import DictConfig
 import wandb
@@ -65,18 +65,41 @@ class Trainer:
     def _create_dataloader(self, split: str) -> DataLoader:
         """Creates a DataLoader for the specified data split."""
         log.info(f"Creating {split} dataloader...")
-        dataset = HDF5Dataset(
-            root=self.cfg.dataset.root,
-            dataset_name=self.cfg.dataset.name,
-            split=[split],
-            num_points=self.cfg.dataset.num_points,
-            normalize=self.cfg.dataset.normalize,
-            random_jitter=self.cfg.dataset.random_jitter,
-            random_rotate=self.cfg.dataset.random_rotate,
-            random_translate=self.cfg.dataset.random_translate,
+        datasets_to_concat = []
+
+        # Iterate over the list of selected datasets from the config.
+        for dataset_key in self.cfg.dataset.selected:
+            if dataset_key not in self.cfg.dataset.available:
+                log.warning(
+                    f"Dataset key '{dataset_key}' from 'selected' list not found in 'available' datasets. Skipping."
+                )
+                continue
+
+            ds_config = self.cfg.dataset.available[dataset_key]
+            log.info(f"Loading dataset: '{dataset_key}'")
+            dataset = HDF5Dataset(
+                root=ds_config.root,
+                dataset_name=ds_config.name,
+                split=[split],
+                num_points=ds_config.num_points,
+                normalize=ds_config.get("normalize"),
+                random_jitter=ds_config.get("random_jitter"),
+                random_rotate=ds_config.get("random_rotate"),
+                random_translate=ds_config.get("random_translate"),
+            )
+            datasets_to_concat.append(dataset)
+
+        if not datasets_to_concat:
+            raise ValueError("No valid datasets were loaded. Check your configuration.")
+
+        final_dataset = (
+            ConcatDataset(datasets_to_concat)
+            if len(datasets_to_concat) > 1
+            else datasets_to_concat[0]
         )
+
         return DataLoader(
-            dataset,
+            final_dataset,
             batch_size=self.cfg.training.batch_size,
             shuffle=(split == "train"),
             num_workers=self.cfg.training.num_workers,

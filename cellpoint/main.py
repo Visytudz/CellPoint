@@ -4,7 +4,7 @@ import wandb
 import logging
 from omegaconf import DictConfig, OmegaConf
 
-from cellpoint.train import Trainer
+from train import Trainer
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +21,6 @@ def main(cfg: DictConfig) -> None:
             id=cfg.training.wandb.id,
             resume=cfg.training.wandb.resume,
         )
-
     output_dir = os.getcwd()
     log.info(f"Working directory for this run: {output_dir}")
 
