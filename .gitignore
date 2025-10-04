@@ -1,6 +1,6 @@
 __pycache__/
 .vscode/
-datasets/
+/datasets/
 image/
 scenes/
 outputs/
