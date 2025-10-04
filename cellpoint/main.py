@@ -4,7 +4,7 @@ import wandb
 import logging
 from omegaconf import DictConfig, OmegaConf
 
-from train import Trainer
+from tools.train import Trainer
 
 log = logging.getLogger(__name__)
 

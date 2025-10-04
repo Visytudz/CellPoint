@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import knn_block as knn
-from utils import local_cov, local_maxpool, get_neighbors
+from utils.utils import knn_block as knn
+from utils.utils import local_cov, local_maxpool, get_neighbors
 
 
 class EdgeConv(nn.Module):

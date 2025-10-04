@@ -9,9 +9,9 @@ import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-from utils import load_ply
-from model import Reconstructor
-from dataset import HDF5Dataset, normalize_to_unit_sphere
+from utils.utils import load_ply
+from models.foldingnet import Reconstructor
+from datasets.HDF5Dataset import HDF5Dataset, normalize_to_unit_sphere
 
 log = logging.getLogger(__name__)
 

@@ -9,9 +9,9 @@ from tqdm import tqdm
 from omegaconf import DictConfig
 import wandb
 
-from dataset import HDF5Dataset
-from model import Reconstructor
-from loss import ChamferLoss
+from datasets.HDF5Dataset import HDF5Dataset
+from models.foldingnet import Reconstructor
+from utils.loss import ChamferLoss
 
 log = logging.getLogger(__name__)
 
