@@ -4,6 +4,7 @@ import numpy as np
 import torch.utils.data as data
 from typing import Dict, Optional, Any
 
+from cellpoint.utils.io import save_ply
 from cellpoint.utils.transforms import normalize_to_unit_sphere
 
 
@@ -51,6 +52,12 @@ class ShapeNetDataset(data.Dataset):
             id = line.split("-")[1].split(".")[0]
             file_list.append({"label": label, "id": id, "path": line})
         return file_list
+
+    def to_ply(self, item: int, filename: str) -> None:
+        """Saves the point cloud to a PLY file."""
+        sample = self.__getitem__(item)
+        points = sample["points"].numpy()
+        save_ply(points, filename)
 
     def __getitem__(self, item: int) -> Dict[str, Any]:
         """Retrieves a single data sample from the dataset."""
