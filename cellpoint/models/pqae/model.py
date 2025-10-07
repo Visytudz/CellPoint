@@ -28,10 +28,10 @@ class PointPQAE(nn.Module):
         self.grouping = Group(num_group=config.num_group, group_size=config.group_size)
         self.patch_embed = PatchEmbed(embed_dim=config.embed_dim)
         self.encoder = EncoderWrapper(
-            embed_dim=config.embed_dim,
-            trans_dim=config.trans_dim,
+            embed_dim=config.trans_dim,
             depth=config.encoder_depth,
             num_heads=config.encoder_num_heads,
+            mlp_ratio=config.mlp_ratio,
             drop_path_rate=config.drop_path_rate,
         )
         self.positional_query = PositionalQuery(
@@ -69,15 +69,15 @@ class PointPQAE(nn.Module):
         # 1. Generate two decoupled views and their relative position
         relative_center_2_to_1, view1, view2 = self.view_generator(pts)
         relative_center_1_to_2 = -relative_center_2_to_1
-        
+
         # 2. Tokenize and get initial embeddings for both views
         neighborhood1, centers1, tokens1 = self._get_tokens(view1)
         neighborhood2, centers2, tokens2 = self._get_tokens(view2)
-        
+
         # 3. Encode both token sequences using the shared encoder
         _, encoded_tokens1 = self.encoder(tokens1, centers1)
         _, encoded_tokens2 = self.encoder(tokens2, centers2)
-        
+
         # --- 4. Symmetric Cross-Reconstruction ---
         # 4a. Reconstruct View 1 from View 2
         queried_features_1 = self.positional_query(
@@ -101,3 +101,36 @@ class PointPQAE(nn.Module):
             "target_view1": neighborhood1,  # (B, G, K, C_in)
             "target_view2": neighborhood2,  # (B, G, K, C_in)
         }
+
+
+from omegaconf import OmegaConf
+
+
+if __name__ == "__main__":
+    cfg = {
+        "min_crop_rate": 0.7,
+        "num_group": 64,
+        "group_size": 32,
+        "embed_dim": 64,
+        "trans_dim": 128,
+        "encoder_depth": 6,
+        "encoder_num_heads": 8,
+        "decoder_depth": 4,
+        "decoder_num_heads": 8,
+        "drop_path_rate": 0.1,
+        "mlp_ratio": 4.0,
+    }
+    cfg = OmegaConf.create(cfg)
+
+    model = PointPQAE(cfg).cuda()
+    pts = torch.randn(2, 1024, 3).cuda()
+    out = model(pts)
+
+    print(model)
+    for k, v in out.items():
+        print(k, v.shape)
+    print("Total number of parameters:", sum(p.numel() for p in model.parameters()))
+    print(
+        "Total number of trainable parameters:",
+        sum(p.numel() for p in model.parameters() if p.requires_grad),
+    )

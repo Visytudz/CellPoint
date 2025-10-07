@@ -17,7 +17,7 @@ class EncoderWrapper(nn.Module):
 
     def __init__(
         self,
-        trans_dim: int,
+        embed_dim: int,
         depth: int,
         num_heads: int,
         mlp_ratio: float = 4.0,
@@ -28,7 +28,7 @@ class EncoderWrapper(nn.Module):
 
         Parameters
         ----------
-        trans_dim : int
+        embed_dim : int
             The dimensionality of the transformer layers.
         depth : int
             The number of transformer blocks.
@@ -42,23 +42,23 @@ class EncoderWrapper(nn.Module):
         super().__init__()
 
         # 1. Learnable CLS Token and its Positional Embedding
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, trans_dim))
-        self.cls_pos = nn.Parameter(torch.zeros(1, 1, trans_dim))
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.cls_pos = nn.Parameter(torch.zeros(1, 1, embed_dim))
         trunc_normal_(self.cls_token, std=0.02)
         trunc_normal_(self.cls_pos, std=0.02)
 
         # 2. Positional Embedding generator for patch centers
         self.pos_embed = nn.Sequential(
-            nn.Linear(3, 128), nn.GELU(), nn.Linear(128, trans_dim)
+            nn.Linear(3, 128), nn.GELU(), nn.Linear(128, embed_dim)
         )
 
         # 3. Core Transformer Encoder architecture
         self.transformer_encoder = TransformerEncoder(
-            embed_dim=trans_dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
-            drop_path_rate=drop_path_rate,
+            drop_path=drop_path_rate,
         )
 
     def forward(
