@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 
-from .modules.tokenize import Group, PatchEmbed
-from .modules.view_generator import PointViewGenerator
-from .modules.transformer import EncoderWrapper
-from .modules.reconstruction import PositionalQuery, ReconstructionHead
+from .pipelines.encoder import EncoderWrapper
+from .pipelines.tokenizer import Group, PatchEmbed
+from .pipelines.view_generator import PointViewGenerator
+from .pipelines.decoder import PositionalQuery, ReconstructionHead
 
 
 class PointPQAE(nn.Module):

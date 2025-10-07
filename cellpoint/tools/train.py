@@ -11,7 +11,7 @@ import wandb
 
 from cellpoint.datasets.HDF5Dataset import HDF5Dataset
 from cellpoint.models.foldingnet import Reconstructor
-from cellpoint.models.chamfer_loss import ChamferLoss
+from cellpoint.loss.chamfer_loss import ChamferLoss
 
 log = logging.getLogger(__name__)
 

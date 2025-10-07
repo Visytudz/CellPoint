@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 
-from .transformer import Attention, TransformerDecoder
+from ..layers.attention import Attention
+from ..layers.transformer import TransformerDecoder
 from cellpoint.utils.misc import get_pos_embed
 
 
