@@ -83,7 +83,7 @@ class ReconstructionHead(nn.Module):
 
     def __init__(
         self,
-        trans_dim: int,
+        embed_dim: int,
         depth: int,
         num_heads: int,
         group_size: int,
@@ -93,13 +93,13 @@ class ReconstructionHead(nn.Module):
 
         # A shallow Transformer decoder for feature refinement
         self.decoder = TransformerDecoder(
-            embed_dim=trans_dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
         )
 
         # A linear layer to project features to 3D point coordinates
-        self.to_points = nn.Linear(trans_dim, C_out * group_size)
+        self.to_points = nn.Linear(embed_dim, C_out * group_size)
 
     def forward(self, queried_features: torch.Tensor) -> torch.Tensor:
         """

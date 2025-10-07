@@ -8,17 +8,16 @@ from .attention import Attention
 class MLP(nn.Module):
     def __init__(
         self,
-        in_features,
-        hidden_features=None,
-        out_features=None,
-        act_layer=nn.GELU,
-        drop=0.0,
+        in_features: int,
+        hidden_features: int = None,
+        out_features: int = None,
+        drop: float = 0.0,
     ):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.linear1 = nn.Linear(in_features, hidden_features)
-        self.activate = act_layer()
+        self.activate = nn.GELU()
         self.linear2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
 
@@ -48,20 +47,18 @@ class MLP(nn.Module):
 class TransformerBlock(nn.Module):
     def __init__(
         self,
-        dim,
-        num_heads,
-        mlp_ratio=4.0,
-        qkv_bias=False,
-        proj_drop=0.0,
-        attn_drop=0.0,
-        drop_path=0.0,
-        act_layer=nn.GELU,
-        norm_layer=nn.LayerNorm,
+        dim: int,
+        num_heads: int,
+        mlp_ratio: float = 4.0,
+        qkv_bias: bool = False,
+        proj_drop: float = 0.0,
+        attn_drop: float = 0.0,
+        drop_path: float = 0.0,
     ):
         super().__init__()
-        self.norm = norm_layer(dim)
+        self.norm = nn.LayerNorm(dim)
         self.attn = Attention(
-            dim,
+            dim=dim,
             num_heads=num_heads,
             qkv_bias=qkv_bias,
             attn_drop=attn_drop,
@@ -71,7 +68,7 @@ class TransformerBlock(nn.Module):
         self.mlp = MLP(
             in_features=dim,
             hidden_features=int(dim * mlp_ratio),
-            act_layer=act_layer,
+            out_features=dim,
             drop=proj_drop,
         )
 

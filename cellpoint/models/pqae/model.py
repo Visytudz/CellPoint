@@ -28,17 +28,17 @@ class PointPQAE(nn.Module):
         self.grouping = Group(num_group=config.num_group, group_size=config.group_size)
         self.patch_embed = PatchEmbed(embed_dim=config.embed_dim)
         self.encoder = EncoderWrapper(
-            embed_dim=config.trans_dim,
+            embed_dim=config.embed_dim,
             depth=config.encoder_depth,
             num_heads=config.encoder_num_heads,
             mlp_ratio=config.mlp_ratio,
             drop_path_rate=config.drop_path_rate,
         )
         self.positional_query = PositionalQuery(
-            embed_dim=config.trans_dim, num_heads=config.decoder_num_heads
+            embed_dim=config.embed_dim, num_heads=config.decoder_num_heads
         )
         self.reconstruction_head = ReconstructionHead(
-            trans_dim=config.trans_dim,
+            embed_dim=config.embed_dim,
             depth=config.decoder_depth,
             num_heads=config.decoder_num_heads,
             group_size=config.group_size,
@@ -111,8 +111,7 @@ if __name__ == "__main__":
         "min_crop_rate": 0.7,
         "num_group": 64,
         "group_size": 32,
-        "embed_dim": 64,
-        "trans_dim": 128,
+        "embed_dim": 384,
         "encoder_depth": 6,
         "encoder_num_heads": 8,
         "decoder_depth": 4,
@@ -123,10 +122,11 @@ if __name__ == "__main__":
     cfg = OmegaConf.create(cfg)
 
     model = PointPQAE(cfg).cuda()
+    print(model)
+
     pts = torch.randn(2, 1024, 3).cuda()
     out = model(pts)
 
-    print(model)
     for k, v in out.items():
         print(k, v.shape)
     print("Total number of parameters:", sum(p.numel() for p in model.parameters()))

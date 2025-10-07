@@ -7,14 +7,14 @@ from .blocks import TransformerBlock
 class TransformerEncoder(nn.Module):
     def __init__(
         self,
-        embed_dim,
-        depth,
-        num_heads,
-        mlp_ratio=4.0,
-        qkv_bias=False,
-        proj_drop=0.0,
-        attn_drop=0.0,
-        drop_path=0.0,
+        embed_dim: int,
+        depth: int,
+        num_heads: int,
+        mlp_ratio: float = 4.0,
+        qkv_bias: bool = False,
+        proj_drop: float = 0.0,
+        attn_drop: float = 0.0,
+        drop_path: float = 0.0,
     ):
         super().__init__()
         # Create a list of drop path rates for stochastic depth
@@ -59,14 +59,14 @@ class TransformerEncoder(nn.Module):
 class TransformerDecoder(nn.Module):
     def __init__(
         self,
-        embed_dim,
-        depth,
-        num_heads,
-        mlp_ratio=4.0,
-        qkv_bias=False,
-        drop_rate=0.0,
-        attn_drop_rate=0.0,
-        drop_path_rate=0.0,
+        embed_dim: int,
+        depth: int,
+        num_heads: int,
+        mlp_ratio: float = 4.0,
+        qkv_bias: bool = False,
+        drop_rate: float = 0.0,
+        attn_drop_rate: float = 0.0,
+        drop_path_rate: float = 0.0,
     ):
         super().__init__()
         # Create a list of drop path rates for stochastic depth
