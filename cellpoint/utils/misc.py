@@ -1,4 +1,30 @@
 import torch
+from pointnet2_ops import pointnet2_utils
+
+
+def fps(points: torch.Tensor, number: int) -> torch.Tensor:
+    """
+    Performs Farthest Point Sampling (FPS) on the input point cloud.
+
+    Parameters
+    ----------
+    points : torch.Tensor
+        The input point cloud. Shape: (B, N, 3).
+    number : int
+        The number of points to sample.
+
+    Returns
+    -------
+    torch.Tensor
+        The sampled points. Shape: (B, number, 3).
+    """
+    fps_idx = pointnet2_utils.furthest_point_sample(points, number)
+    fps_data = (
+        pointnet2_utils.gather_operation(points.transpose(1, 2).contiguous(), fps_idx)
+        .transpose(1, 2)
+        .contiguous()
+    )
+    return fps_data
 
 
 def get_neighbors(points: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
@@ -10,20 +36,20 @@ def get_neighbors(points: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
     points : torch.Tensor
         The source points, shape (B, C, N).
     idx : torch.Tensor
-        The indices of neighbors for each point, shape (B, N, k).
+        The indices of neighbors for each query point, shape (B, M, k).
 
     Returns
     -------
     torch.Tensor
-        The features of the neighbor points, shape (B, N, k, C).
+        The features of the neighbor points, shape (B, M, k, C).
     """
-    B, C, N = points.size()
-    k = idx.size(-1)
+    B, C, _ = points.size()
+    _, M, k = idx.size()
 
     points_t = points.transpose(2, 1).contiguous()  # (B, N, C)
-    idx = idx.reshape(B, -1, 1).expand(-1, -1, C)  # (B, N*k, C)
-    neighbors = torch.gather(points_t, 1, idx)  # (B, N*k, C)
-    neighbors = neighbors.view(B, N, k, C)  # (B, N, k, C)
+    idx = idx.reshape(B, -1, 1).expand(-1, -1, C)  # (B, M*k, C)
+    neighbors = torch.gather(points_t, 1, idx)  # (B, M*k, C)
+    neighbors = neighbors.view(B, M, k, C)  # (B, M, k, C)
 
     return neighbors
 
