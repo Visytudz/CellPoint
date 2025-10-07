@@ -103,3 +103,58 @@ def local_maxpool(points: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
     neighbors = get_neighbors(points, idx)  # (B, N, k, C)
     pooled_points, _ = torch.max(neighbors, dim=2)  # (B, N, C)
     return pooled_points.transpose(2, 1)  # (B, C, N)
+
+
+def get_pos_embed(embed_dim: int, pos_vector: torch.Tensor) -> torch.Tensor:
+    """
+    Generates a high-dimensional positional embedding from a position vector.
+
+    Parameters
+    ----------
+    embed_dim : int
+        The target dimensionality of the output embedding. It must be divisible by
+        (2 * C), where C is the number of channels in pos_vector.
+    pos_vector : torch.Tensor
+        The input position vectors. Shape: (B, G, C).
+
+    Returns
+    -------
+    torch.Tensor
+        The resulting high-dimensional positional embedding. Shape: (B, G, embed_dim).
+    """
+    B, G, C = pos_vector.shape
+
+    # embded_dim = 2 * C * num_freqs
+    if embed_dim % (2 * C) != 0:
+        raise ValueError(
+            f"embed_dim ({embed_dim}) must be divisible by 2 * input_channels ({2 * C})."
+        )
+
+    # 1. Create the frequency basis (omega)
+    num_freqs = embed_dim // (2 * C)
+    # Create a tensor of frequencies from 0 to num_freqs-1
+    freqs = torch.arange(num_freqs, dtype=torch.float32, device=pos_vector.device)
+    # Scale the frequencies logarithmically
+    omega = 1.0 / (10000.0 ** (freqs / num_freqs))
+
+    # 2. Process all input dimensions at once using broadcasting
+    # pos_vector shape: (B, G, C) -> unsqueeze to (B, G, C, 1)
+    # omega shape: (num_freqs,) -> view as (1, 1, 1, num_freqs)
+    # Resulting 'out' shape: (B, G, C, num_freqs)
+    out = pos_vector.unsqueeze(-1) * omega.view(1, 1, 1, -1)
+
+    # 3. Apply sin and cos functions
+    emb_sin = torch.sin(out)
+    emb_cos = torch.cos(out)
+
+    # 4. Concatenate sin and cos embeddings
+    # Shape of emb_sin and emb_cos is (B, G, C, num_freqs)
+    # Concatenate them along the last dimension to get (B, G, C, num_freqs * 2)
+    embedding = torch.cat([emb_sin, emb_cos], dim=-1)
+
+    # 5. Reshape to the final embedding dimension
+    # Reshape (B, G, C, num_freqs * 2) -> (B, G, C * num_freqs * 2)
+    # which is (B, G, embed_dim)
+    final_embedding = embedding.view(B, G, -1)
+
+    return final_embedding

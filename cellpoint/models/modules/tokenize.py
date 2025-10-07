@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from utils.misc import fps, get_neighbors
-from utils.knn import knn_vanilla as knn
+from cellpoint.utils.misc import fps, get_neighbors
+from cellpoint.utils.knn import knn_vanilla as knn
 
 
 class Group(nn.Module):
