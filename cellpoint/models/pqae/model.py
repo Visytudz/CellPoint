@@ -26,22 +26,37 @@ class PointPQAE(nn.Module):
 
         self.view_generator = PointViewGenerator(min_crop_rate=config.min_crop_rate)
         self.grouping = Group(num_group=config.num_group, group_size=config.group_size)
-        self.patch_embed = PatchEmbed(embed_dim=config.embed_dim)
+        self.patch_embed = PatchEmbed(
+            in_channels=config.in_channels, embed_dim=config.embed_dim
+        )
         self.encoder = EncoderWrapper(
             embed_dim=config.embed_dim,
             depth=config.encoder_depth,
             num_heads=config.encoder_num_heads,
             mlp_ratio=config.mlp_ratio,
+            qkv_bias=config.qkv_bias,
+            proj_drop=config.proj_drop,
+            attn_drop=config.attn_drop,
             drop_path_rate=config.drop_path_rate,
         )
         self.positional_query = PositionalQuery(
-            embed_dim=config.embed_dim, num_heads=config.decoder_num_heads
+            embed_dim=config.embed_dim,
+            num_heads=config.decoder_num_heads,
+            qkv_bias=config.qkv_bias,
+            proj_drop=config.proj_drop,
+            attn_drop=config.attn_drop,
         )
         self.reconstruction_head = ReconstructionHead(
             embed_dim=config.embed_dim,
             depth=config.decoder_depth,
             num_heads=config.decoder_num_heads,
             group_size=config.group_size,
+            qkv_bias=config.qkv_bias,
+            proj_drop=config.proj_drop,
+            attn_drop=config.attn_drop,
+            drop_path_rate=config.drop_path_rate,
+            mlp_ratio=config.mlp_ratio,
+            C_out=config.in_channels,
         )
 
     def _get_tokens(
@@ -103,21 +118,24 @@ class PointPQAE(nn.Module):
         }
 
 
-from omegaconf import OmegaConf
-
-
 if __name__ == "__main__":
+    from omegaconf import OmegaConf
+
     cfg = {
         "min_crop_rate": 0.7,
         "num_group": 64,
         "group_size": 32,
         "embed_dim": 384,
+        "in_channels": 3,
         "encoder_depth": 6,
         "encoder_num_heads": 8,
         "decoder_depth": 4,
         "decoder_num_heads": 8,
         "drop_path_rate": 0.1,
         "mlp_ratio": 4.0,
+        "qkv_bias": False,
+        "proj_drop": 0.0,
+        "attn_drop": 0.0,
     }
     cfg = OmegaConf.create(cfg)
 

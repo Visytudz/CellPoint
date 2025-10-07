@@ -34,8 +34,6 @@ class Group(nn.Module):
             - center: The centroids of each patch in the original coordinate system.
               Shape: (B, G, C).
         """
-        B, N, _ = points.shape
-
         # 1. Use Farthest Point Sampling to select centroids.
         center = fps(points, self.num_group)  # Shape: (B, G, 3)
         # 2. Use K-Nearest Neighbors to find points for each patch.

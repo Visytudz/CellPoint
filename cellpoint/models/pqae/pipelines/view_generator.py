@@ -41,7 +41,7 @@ class PointViewGenerator(nn.Module):
         center_indices = torch.randint(0, n_points, (batch_size,), device=pts.device)
         center_points = torch.gather(
             pts, 1, center_indices.view(-1, 1, 1).expand(-1, -1, 3)
-        )
+        )  # (B, 1, 3)
 
         # 2. Calculate distances and find the nearest neighbors (top-k)
         # distances shape: (B, N)

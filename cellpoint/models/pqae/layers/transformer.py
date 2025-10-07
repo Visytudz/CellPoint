@@ -64,8 +64,8 @@ class TransformerDecoder(nn.Module):
         num_heads: int,
         mlp_ratio: float = 4.0,
         qkv_bias: bool = False,
-        drop_rate: float = 0.0,
-        attn_drop_rate: float = 0.0,
+        proj_drop: float = 0.0,
+        attn_drop: float = 0.0,
         drop_path_rate: float = 0.0,
     ):
         super().__init__()
@@ -78,8 +78,8 @@ class TransformerDecoder(nn.Module):
                     num_heads=num_heads,
                     mlp_ratio=mlp_ratio,
                     qkv_bias=qkv_bias,
-                    proj_drop=drop_rate,
-                    attn_drop=attn_drop_rate,
+                    proj_drop=proj_drop,
+                    attn_drop=attn_drop,
                     drop_path=dpr[i],
                 )
                 for i in range(depth)

@@ -21,6 +21,9 @@ class EncoderWrapper(nn.Module):
         depth: int,
         num_heads: int,
         mlp_ratio: float = 4.0,
+        qkv_bias: bool = True,
+        proj_drop: float = 0.0,
+        attn_drop: float = 0.0,
         drop_path_rate: float = 0.0,
     ):
         """
@@ -36,6 +39,12 @@ class EncoderWrapper(nn.Module):
             The number of attention heads.
         mlp_ratio : float, optional
             The ratio to expand the hidden dimension in the MLP blocks, by default 4.0.
+        qkv_bias : bool, optional
+            Whether to include bias terms in the QKV projections, by default True.
+        proj_drop : float, optional
+            The dropout rate after the projection layer, by default 0.0.
+        attn_drop : float, optional
+            The dropout rate within the attention mechanism, by default 0.0.
         drop_path_rate : float, optional
             The stochastic depth rate, by default 0.0.
         """
@@ -58,6 +67,9 @@ class EncoderWrapper(nn.Module):
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
+            qkv_bias=qkv_bias,
+            proj_drop=proj_drop,
+            attn_drop=attn_drop,
             drop_path=drop_path_rate,
         )
 

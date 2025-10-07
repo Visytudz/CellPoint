@@ -16,11 +16,24 @@ class PositionalQuery(nn.Module):
     the features needed to reconstruct a target view from a source view.
     """
 
-    def __init__(self, embed_dim: int, num_heads: int):
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int,
+        qkv_bias: bool = False,
+        proj_drop: float = 0.0,
+        attn_drop: float = 0.0,
+    ):
         super().__init__()
         self.embed_dim = embed_dim
         # The cross-attention layer is our unified Attention module
-        self.cross_attention = Attention(dim=embed_dim, num_heads=num_heads)
+        self.cross_attention = Attention(
+            dim=embed_dim,
+            num_heads=num_heads,
+            qkv_bias=qkv_bias,
+            proj_drop=proj_drop,
+            attn_drop=attn_drop,
+        )
 
     def forward(
         self,
@@ -87,6 +100,11 @@ class ReconstructionHead(nn.Module):
         depth: int,
         num_heads: int,
         group_size: int,
+        mlp_ratio: float = 4.0,
+        qkv_bias: bool = False,
+        proj_drop: float = 0.0,
+        attn_drop: float = 0.0,
+        drop_path_rate: float = 0.0,
         C_out: int = 3,
     ):
         super().__init__()
@@ -96,6 +114,11 @@ class ReconstructionHead(nn.Module):
             embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
+            mlp_ratio=mlp_ratio,
+            qkv_bias=qkv_bias,
+            proj_drop=proj_drop,
+            attn_drop=attn_drop,
+            drop_path_rate=drop_path_rate,
         )
 
         # A linear layer to project features to 3D point coordinates
