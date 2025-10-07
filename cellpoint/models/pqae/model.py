@@ -69,12 +69,15 @@ class PointPQAE(nn.Module):
         # 1. Generate two decoupled views and their relative position
         relative_center_2_to_1, view1, view2 = self.view_generator(pts)
         relative_center_1_to_2 = -relative_center_2_to_1
+        
         # 2. Tokenize and get initial embeddings for both views
         neighborhood1, centers1, tokens1 = self._get_tokens(view1)
         neighborhood2, centers2, tokens2 = self._get_tokens(view2)
+        
         # 3. Encode both token sequences using the shared encoder
         _, encoded_tokens1 = self.encoder(tokens1, centers1)
         _, encoded_tokens2 = self.encoder(tokens2, centers2)
+        
         # --- 4. Symmetric Cross-Reconstruction ---
         # 4a. Reconstruct View 1 from View 2
         queried_features_1 = self.positional_query(
