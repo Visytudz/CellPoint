@@ -7,7 +7,7 @@ from omegaconf import DictConfig
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader, ConcatDataset
-from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
+from timm.scheduler import CosineLRScheduler
 
 from cellpoint.utils.io import save_ply
 from cellpoint.loss import ChamferLoss
@@ -43,24 +43,13 @@ class PretrainTrainer:
             lr=self.cfg.training.lr,
             weight_decay=self.cfg.training.weight_decay,
         )
-        # 1. Define the warmup scheduler
-        warmup_scheduler = LinearLR(
+        self.scheduler = CosineLRScheduler(
             self.optimizer,
-            start_factor=1e-6,  # Start from a very small learning rate
-            end_factor=1.0,
-            total_iters=self.cfg.training.warmup_epochs,
-        )
-        # 2. Define the main cosine annealing scheduler
-        main_scheduler = CosineAnnealingLR(
-            self.optimizer,
-            T_max=self.cfg.training.epochs - self.cfg.training.warmup_epochs,
-            eta_min=self.cfg.training.min_lr,
-        )
-        # 3. Chain them together with SequentialLR
-        self.scheduler = SequentialLR(
-            self.optimizer,
-            schedulers=[warmup_scheduler, main_scheduler],
-            milestones=[self.cfg.training.warmup_epochs],
+            t_initial=self.cfg.training.epochs,
+            lr_min=self.cfg.training.min_lr,
+            warmup_t=self.cfg.training.warmup_epochs,
+            warmup_lr_init=1e-6,
+            t_in_epochs=True,
         )
 
         # State attributes
@@ -264,6 +253,8 @@ class PretrainTrainer:
 
             loss.backward()
             self.optimizer.step()
+            
+            loss = loss * 1000  # Scale loss for better logging visibility
             total_loss += loss.item()
             progress_bar.set_postfix(loss=loss.item())
 
@@ -371,7 +362,7 @@ class PretrainTrainer:
                 self._visualize_reconstructions()
 
             # Other housekeeping
-            self.scheduler.step()
+            self.scheduler.step(self.epoch)
             save_interval = self.cfg.training.get("save_interval", 50)
             if (
                 self.epoch % save_interval == 0
