@@ -1,4 +1,3 @@
-import os
 import wandb
 import logging
 from tqdm import tqdm
@@ -10,6 +9,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, ConcatDataset
 
 from cellpoint.loss import ChamferLoss
+
+# HDF5Dataset 和 ShapeNetDataset 都需要导入
 from cellpoint.datasets import HDF5Dataset, ShapeNetDataset
 from cellpoint.models import FoldingNetReconstructor, PointPQAE
 
@@ -20,7 +21,7 @@ log = logging.getLogger(__name__)
 class PretrainTrainer:
     def __init__(self, cfg: DictConfig, output_dir: str):
         """
-        Initializes the Trainer.
+        Initializes the Trainer for pre-training without validation.
 
         Parameters
         ----------
@@ -36,7 +37,6 @@ class PretrainTrainer:
 
         # Instantiate components
         self.train_loader = self._create_dataloader("train")
-        self.val_loader = self._create_dataloader("val")
         self.model = self._build_model().to(self.device)
         self.loss_fn = ChamferLoss()
         self.optimizer = optim.AdamW(
@@ -52,7 +52,6 @@ class PretrainTrainer:
 
         # State attributes
         self.epoch = 0
-        self.best_val_loss = float("inf")
         self._load_checkpoint()
         self.visualization_batch = self._prepare_visualization_batch()
 
@@ -68,7 +67,6 @@ class PretrainTrainer:
         log.info(f"Creating {split} dataloader...")
         datasets_to_concat = []
 
-        # Iterate over the list of selected datasets from the config.
         for dataset_key in self.cfg.dataset.selected:
             if dataset_key not in self.cfg.dataset.available:
                 log.warning(
@@ -77,18 +75,34 @@ class PretrainTrainer:
                 continue
 
             ds_config = self.cfg.dataset.available[dataset_key]
-            log.info(f"Loading dataset: '{dataset_key}'")
-            dataset = HDF5Dataset(
-                root=ds_config.root,
-                dataset_name=ds_config.name,
-                split=[split],
-                num_points=ds_config.num_points,
-                normalize=ds_config.get("normalize"),
-                random_jitter=ds_config.get("random_jitter"),
-                random_rotate=ds_config.get("random_rotate"),
-                random_translate=ds_config.get("random_translate"),
-            )
-            datasets_to_concat.append(dataset)
+            log.info(f"Loading dataset: '{dataset_key}' of type '{ds_config.type}'")
+
+            dataset = None
+            if ds_config.type == "hdf5":
+                dataset = HDF5Dataset(
+                    root=ds_config.root,
+                    dataset_name=ds_config.name,
+                    split=[split],
+                    num_points=ds_config.num_points,
+                    normalize=ds_config.get("normalize"),
+                    random_jitter=ds_config.get("random_jitter"),
+                    random_rotate=ds_config.get("random_rotate"),
+                    random_translate=ds_config.get("random_translate"),
+                )
+            elif ds_config.type == "shapenet":
+                dataset = ShapeNetDataset(
+                    pc_path=ds_config.pc_path,
+                    split_path=ds_config.split_path,
+                    split=split,
+                    num_points=ds_config.num_points,
+                )
+            else:
+                log.warning(
+                    f"Unknown dataset type '{ds_config.type}' for key '{dataset_key}'. Skipping."
+                )
+
+            if dataset:
+                datasets_to_concat.append(dataset)
 
         if not datasets_to_concat:
             raise ValueError("No valid datasets were loaded. Check your configuration.")
@@ -118,8 +132,7 @@ class PretrainTrainer:
             raise ValueError(f"Unknown model name: {model_config.name}")
 
     def _load_checkpoint(self):
-        """Loads a checkpoint to resume training or for fine-tuning."""
-        # check checkpoint path from config
+        """Loads a checkpoint to resume training."""
         checkpoint_path = self.cfg.training.get("checkpoint_path")
         if checkpoint_path is None:
             log.info("No checkpoint specified. Starting training from scratch.")
@@ -131,22 +144,16 @@ class PretrainTrainer:
             )
             return
 
-        # Load checkpoint
         log.info(f"Loading checkpoint from: {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        # Load model weights
         self.model.load_state_dict(checkpoint["model_state_dict"])
-        # If resuming training, load optimizer, scheduler, and epoch state
         if self.cfg.training.get("resume_training", False):
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
             self.epoch = checkpoint["epoch"]
-            # Load best_val_loss if it exists in the checkpoint
-            if "best_val_loss" in checkpoint:
-                self.best_val_loss = checkpoint["best_val_loss"]
             log.info(f"Resuming training from epoch {self.epoch + 1}.")
         else:
-            log.info("Loaded model weights only for fine-tuning.")
+            log.info("Loaded model weights only.")
 
     def _prepare_visualization_batch(self):
         """Prepares a fixed batch of data for visualization."""
@@ -174,6 +181,27 @@ class PretrainTrainer:
         batch_tensor = torch.stack(points_list).to(self.device)  # (B, N, 3)
         return batch_tensor
 
+    def _compute_pqae_loss(self, outputs: dict) -> torch.Tensor:
+        # Unpack outputs
+        recon_v1 = outputs["reconstructed_view1"]  # Shape: [B, G, K, C]
+        target_v1 = outputs["target_view1"]  # Shape: [B, G, K, C]
+        recon_v2 = outputs["reconstructed_view2"]  # Shape: [B, G, K, C]
+        target_v2 = outputs["target_view2"]  # Shape: [B, G, K, C]
+
+        B, G, K, C = recon_v1.shape
+        # Reshape for per-patch loss calculation by merging Batch and Group dimensions
+        recon_v1_flat = recon_v1.reshape(B * G, K, C)
+        target_v1_flat = target_v1.reshape(B * G, K, C)
+        recon_v2_flat = recon_v2.reshape(B * G, K, C)
+        target_v2_flat = target_v2.reshape(B * G, K, C)
+
+        # Calculate loss for each view
+        loss1 = self.loss_fn(recon_v1_flat, target_v1_flat)
+        loss2 = self.loss_fn(recon_v2_flat, target_v2_flat)
+
+        # Return symmetric loss
+        return loss1 + loss2
+
     def _train_epoch(self) -> float:
         """Runs a single training epoch."""
         self.model.train()
@@ -192,13 +220,7 @@ class PretrainTrainer:
                 loss = self.loss_fn(points, reconstructed_points)
             elif self.cfg.model.name == "pqae":
                 outputs = self.model(points)
-                loss1 = self.loss_fn(
-                    outputs["reconstructed_view1"], outputs["target_view1"]
-                )
-                loss2 = self.loss_fn(
-                    outputs["reconstructed_view2"], outputs["target_view2"]
-                )
-                loss = loss1 + loss2
+                loss = self._compute_pqae_loss(outputs)
             else:
                 raise ValueError(f"Unknown model name: {self.cfg.model.name}")
 
@@ -210,32 +232,6 @@ class PretrainTrainer:
 
         return total_loss / len(self.train_loader)
 
-    def _evaluate_epoch(self) -> float:
-        """Runs a single validation epoch."""
-        self.model.eval()
-        total_loss = 0.0
-        with torch.no_grad():
-            for batch in self.val_loader:
-                points = batch["points"].to(self.device)
-
-                if self.cfg.model.name == "foldingnet":
-                    reconstructed_points = self.model(points)
-                    loss = self.loss_fn(points, reconstructed_points)
-                elif self.cfg.model.name == "pqae":
-                    outputs = self.model(points)
-                    loss1 = self.loss_fn(
-                        outputs["reconstructed_view1"], outputs["target_view1"]
-                    )
-                    loss2 = self.loss_fn(
-                        outputs["reconstructed_view2"], outputs["target_view2"]
-                    )
-                    loss = loss1 + loss2
-                else:
-                    raise ValueError(f"Unknown model name: {self.cfg.model.name}")
-
-                total_loss += loss.item()
-        return total_loss / len(self.val_loader)
-
     def _visualize_reconstructions(self):
         """Uses the pre-selected fixed batch to log reconstructions to W&B."""
         if self.visualization_batch is None:
@@ -243,27 +239,34 @@ class PretrainTrainer:
         log.info(f"--- Visualizing reconstructions @ Epoch {self.epoch} ---")
         self.model.eval()
         with torch.no_grad():
-            reconstructed_points = self.model(self.visualization_batch)
+            if self.cfg.model.name == "foldingnet":
+                reconstructed_points = self.model(self.visualization_batch)
+            elif self.cfg.model.name == "pqae":
+                outputs = self.model(self.visualization_batch)
+                # Reshape to match input shape, assuming reconstruction is patch-based
+                B, N, C = self.visualization_batch.shape
+                # This might need adjustment depending on how you want to visualize patches
+                reconstructed_points = outputs["reconstructed_view1"].view(B, -1, C)[
+                    :, :N, :
+                ]
+            else:
+                reconstructed_points = self.model(self.visualization_batch)
 
         point_clouds_to_log = []
         captions = []
-        # Iterate through the samples in the fixed batch
         for i in range(self.visualization_batch.shape[0]):
             ground_truth_pc = self.visualization_batch[i].cpu().numpy()
             reconstructed_pc = reconstructed_points[i].cpu().numpy()
-            # Add ground truth and reconstruction for each sample
             point_clouds_to_log.append(
                 wandb.Object3D({"type": "lidar/beta", "points": ground_truth_pc})
             )
             point_clouds_to_log.append(
                 wandb.Object3D({"type": "lidar/beta", "points": reconstructed_pc})
             )
-            # Create corresponding captions
             original_index = self.cfg.training.visualization_indices[i]
             captions.append(f"Sample {original_index} - Ground Truth")
             captions.append(f"Sample {original_index} - Reconstruction")
 
-        # Log the combined list to W&B
         wandb.log(
             {
                 "Point_Cloud_Reconstruction": point_clouds_to_log,
@@ -272,32 +275,8 @@ class PretrainTrainer:
             }
         )
 
-    def _save_best_checkpoint(self, val_loss: float):
-        """Saves the model checkpoint if the validation loss improves."""
-        if val_loss < self.best_val_loss:
-            self.best_val_loss = val_loss
-            checkpoint_path = self.output_dir / "best_model.pth"
-            torch.save(
-                {
-                    "epoch": self.epoch,
-                    "model_state_dict": self.model.state_dict(),
-                    "optimizer_state_dict": self.optimizer.state_dict(),
-                    "scheduler_state_dict": self.scheduler.state_dict(),
-                    "loss": self.best_val_loss,
-                },
-                checkpoint_path,
-            )
-            log.info(
-                f"New best model saved to {os.path.join(os.getcwd(), checkpoint_path)}"
-            )
-
-            if self.cfg.training.wandb.log:
-                artifact = wandb.Artifact(f"{wandb.run.name}-best-model", type="model")
-                artifact.add_file(checkpoint_path)
-                wandb.log_artifact(artifact)
-
     def _save_last_checkpoint(self):
-        """Saves the latest model state for resuming training."""
+        """Saves the latest model state for resuming training or for downstream tasks."""
         checkpoint_path = self.output_dir / "last_model.pth"
         torch.save(
             {
@@ -305,19 +284,21 @@ class PretrainTrainer:
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "scheduler_state_dict": self.scheduler.state_dict(),
-                "best_val_loss": self.best_val_loss,  # Save best loss for correct resumption
             },
             checkpoint_path,
         )
-        log.debug(f"Saved last checkpoint to {checkpoint_path}")
+        log.info(f"Saved latest checkpoint to {checkpoint_path} at epoch {self.epoch}")
+
+        if self.cfg.training.wandb.log:
+            artifact = wandb.Artifact(f"{wandb.run.name}-last-model", type="model")
+            artifact.add_file(checkpoint_path)
+            wandb.log_artifact(artifact)
 
     def fit(self):
-        """The main training and validation loop."""
+        """The main training loop without validation."""
         log.info(f"Using device: {self.device}")
-        log.info(
-            f"Train dataset size: {len(self.train_loader.dataset)}, Val dataset size: {len(self.val_loader.dataset)}"
-        )
-        log.info(f"Starting training from epoch {self.epoch + 1}.")
+        log.info(f"Train dataset size: {len(self.train_loader.dataset)}")
+        log.info(f"Starting pre-training from epoch {self.epoch + 1}.")
 
         if self.cfg.training.wandb.log:
             wandb.watch(
@@ -327,7 +308,7 @@ class PretrainTrainer:
         for epoch in range(self.epoch + 1, self.cfg.training.epochs + 1):
             self.epoch = epoch
 
-            # training step
+            # train step
             train_loss = self._train_epoch()
             log.info(
                 f"Epoch {self.epoch}/{self.cfg.training.epochs} | Train Loss: {train_loss:.4f}"
@@ -341,22 +322,7 @@ class PretrainTrainer:
                     }
                 )
 
-            # validation step
-            should_validate = (self.cfg.training.val_every_n_epochs > 0) and (
-                (self.epoch % self.cfg.training.val_every_n_epochs == 0)
-                or (self.epoch == self.cfg.training.epochs)
-            )
-            if should_validate:
-                val_loss = self._evaluate_epoch()
-                log.info(
-                    f"--- Validation @ Epoch {self.epoch} --- | Val Loss: {val_loss:.4f}"
-                )
-                if self.cfg.training.wandb.log:
-                    wandb.log({"epoch": self.epoch, "val_loss": val_loss})
-                self._save_best_checkpoint(val_loss)
-
-            # visualization step
-            if self.cfg.training.wandb.log:
+                # visualization step
                 should_visualize = (
                     self.cfg.training.visualize_every_n_epochs > 0
                 ) and (
@@ -368,6 +334,10 @@ class PretrainTrainer:
 
             # scheduler step
             self.scheduler.step()
-            self._save_last_checkpoint()
+            if (
+                self.epoch % self.cfg.training.save_interval == 0
+                or self.epoch == self.cfg.training.epochs
+            ):
+                self._save_last_checkpoint()
 
-        log.info("Training finished.")
+        log.info("Pre-training finished.")
