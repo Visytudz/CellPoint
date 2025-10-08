@@ -13,6 +13,12 @@ from cellpoint.utils.io import save_ply
 from cellpoint.loss import ChamferLoss
 from cellpoint.datasets import HDF5Dataset, ShapeNetDataset
 from cellpoint.models import FoldingNetReconstructor, PointPQAE
+from cellpoint.utils.transforms import (
+    Compose,
+    PointcloudRotate,
+    PointcloudScaleAndTranslate,
+    PointcloudJitter,
+)
 
 
 log = logging.getLogger(__name__)
@@ -35,6 +41,7 @@ class PretrainTrainer:
         self._setup_random_seed()
 
         # Instantiate components
+        self.train_transform = self._build_transforms()
         self.train_loader = self._create_dataloader(cfg.dataset.splits)
         self.model = self._build_model().to(self.device)
         self.loss_fn = ChamferLoss()
@@ -64,6 +71,34 @@ class PretrainTrainer:
         torch.manual_seed(self.cfg.seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(self.cfg.seed)
+
+    def _build_transforms(self):
+        """Builds a composition of transforms from the configuration."""
+        log.info("Building data augmentations...")
+        cfg_aug = self.cfg.training.augmentations
+        transforms = []
+
+        if cfg_aug.get("rotate"):
+            transforms.append(PointcloudRotate())
+            log.info("  - Rotate added.")
+
+        if cfg_aug.get("scale_and_translate"):
+            transforms.append(
+                PointcloudScaleAndTranslate(
+                    scale_low=cfg_aug.scale_low,
+                    scale_high=cfg_aug.scale_high,
+                    translate_range=cfg_aug.translate_range,
+                )
+            )
+            log.info("  - Scale and Translate added.")
+
+        if cfg_aug.get("jitter"):
+            transforms.append(
+                PointcloudJitter(clip=cfg_aug.jitter_clip, sigma=cfg_aug.jitter_sigma)
+            )
+            log.info("  - Jitter added.")
+
+        return Compose(transforms) if transforms else None
 
     def _create_dataloader(self, splits: list[str]) -> DataLoader:
         """Creates a DataLoader for the specified data split.
@@ -102,9 +137,7 @@ class PretrainTrainer:
                     splits=splits,
                     num_points=ds_config.num_points,
                     normalize=ds_config.get("normalize"),
-                    random_jitter=ds_config.get("random_jitter"),
-                    random_rotate=ds_config.get("random_rotate"),
-                    random_translate=ds_config.get("random_translate"),
+                    transform=self.train_transform,
                 )
             elif ds_config.type == "shapenet":
                 dataset = ShapeNetDataset(
@@ -112,6 +145,7 @@ class PretrainTrainer:
                     split_path=ds_config.split_path,
                     splits=splits,
                     num_points=ds_config.num_points,
+                    transform=self.train_transform,
                 )
             else:
                 log.warning(

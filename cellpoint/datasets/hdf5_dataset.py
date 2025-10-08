@@ -9,12 +9,7 @@ from numpy.typing import NDArray
 from typing import List, Tuple, Dict, Optional, Any
 
 from cellpoint.utils.io import save_ply
-from cellpoint.utils.process import (
-    normalize_to_unit_sphere,
-    jitter_pointcloud,
-    translate_pointcloud,
-    rotate_pointcloud,
-)
+from cellpoint.utils.process import normalize_to_unit_sphere
 
 
 class HDF5Dataset(data.Dataset):
@@ -26,9 +21,7 @@ class HDF5Dataset(data.Dataset):
         num_points: int = 2048,
         splits: list[str] = ["train"],
         normalize: bool = True,
-        random_rotate: bool = False,
-        random_jitter: bool = False,
-        random_translate: bool = False,
+        transform=None,
     ) -> None:
         """
         Initialize the dataset with lazy loading.
@@ -47,12 +40,8 @@ class HDF5Dataset(data.Dataset):
             The splits of the dataset.
         normalize : bool, optional
             Whether to normalize the point cloud.
-        random_rotate : bool, optional
-            Whether to apply random rotation to the dataset.
-        random_jitter : bool, optional
-            Whether to apply random jitter to the dataset.
-        random_translate : bool, optional
-            Whether to apply random translation to the dataset.
+        transform : callable, optional
+            A function/transform that takes in a point cloud and returns a transformed version.
         """
         self.root: str = os.path.join(root, dataset_name)
         self.dataset_name: str = dataset_name
@@ -60,9 +49,7 @@ class HDF5Dataset(data.Dataset):
         self.num_points: int = num_points
         self.split: list[str] = splits
         self.normalize: bool = normalize
-        self.random_rotate: bool = random_rotate
-        self.random_jitter: bool = random_jitter
-        self.random_translate: bool = random_translate
+        self.transform = transform
 
         # Load metadata from the JSON file
         self._load_metadata()
@@ -182,14 +169,10 @@ class HDF5Dataset(data.Dataset):
         label = self.label[item]  # Get pre-loaded label
 
         # Data augmentation
-        if self.random_rotate:
-            pcl = rotate_pointcloud(pcl)
-        if self.random_jitter:
-            pcl = jitter_pointcloud(pcl)
-        if self.random_translate:
-            pcl = translate_pointcloud(pcl)
-
-        pcl_tensor = torch.from_numpy(pcl)
+        if self.transform:
+            pcl_tensor = self.transform(torch.from_numpy(pcl[None, ...])).squeeze(0)
+        else:
+            pcl_tensor = torch.from_numpy(pcl)
         label_tensor = torch.from_numpy(label)
         sample = {
             "points": pcl_tensor,
@@ -214,9 +197,6 @@ if __name__ == "__main__":
         dataset_name=dataset_name,
         num_points=20480,
         splits=split,
-        random_rotate=False,
-        random_jitter=False,
-        random_translate=False,
         # class_choice="cancerous"
     )
     print(f"Dataset size: {len(dataset)}")

@@ -15,6 +15,7 @@ class ShapeNetDataset(data.Dataset):
         split_path: str,
         splits: List[str] = ["train"],
         num_points: int = 2048,
+        transform: Optional[Any] = None,
     ):
         """
         Initializes the ShapeNetPointCloud dataset.
@@ -30,9 +31,12 @@ class ShapeNetDataset(data.Dataset):
             "train", "val", and "test". Default is ["train"].
         num_points : int, optional
             The number of points to sample from each point cloud. Default is 2048.
+        transform : callable, optional
+            A function/transform that takes in a point cloud and returns a transformed version.
         """
         self.pc_path = pc_path
         self.num_points = num_points
+        self.transform = transform
         self.file_list: List[Dict[str, str]] = []
         for split in splits:
             self.file_list.extend(self._load_file_list(split_path, split))
@@ -76,7 +80,12 @@ class ShapeNetDataset(data.Dataset):
             indices = np.random.choice(len(point_cloud), self.num_points, replace=False)
             point_cloud = point_cloud[indices]
         point_cloud = normalize_to_unit_sphere(point_cloud)
-        point_cloud_tensor = torch.from_numpy(point_cloud)
+        if self.transform:
+            point_cloud_tensor = self.transform(
+                torch.from_numpy(point_cloud[None, ...])
+            ).squeeze(0)
+        else:
+            point_cloud_tensor = torch.from_numpy(point_cloud)
 
         sample = {
             "points": point_cloud_tensor,
@@ -95,7 +104,7 @@ if __name__ == "__main__":
     dataset = ShapeNetDataset(
         pc_path="/home/verve/Project/research/CellPoint/datasets/shapenet55-34/pcl",
         split_path="/home/verve/Project/research/CellPoint/datasets/shapenet55-34/splits",
-        splits=["train","test"],
+        splits=["train", "test"],
         num_points=2048,
     )
     print(f"Dataset size: {len(dataset)}")
