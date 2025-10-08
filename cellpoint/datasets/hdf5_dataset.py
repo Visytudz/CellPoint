@@ -24,7 +24,7 @@ class HDF5Dataset(data.Dataset):
         dataset_name: str,
         class_choice: Optional[str] = None,
         num_points: int = 2048,
-        split: list[str] = ["train"],
+        splits: list[str] = ["train"],
         normalize: bool = True,
         random_rotate: bool = False,
         random_jitter: bool = False,
@@ -43,8 +43,8 @@ class HDF5Dataset(data.Dataset):
             The name of the class to load.
         num_points : int, optional
             The number of points to load.
-        split : list[str], optional
-            The split of the dataset.
+        splits : list[str], optional
+            The splits of the dataset.
         normalize : bool, optional
             Whether to normalize the point cloud.
         random_rotate : bool, optional
@@ -58,7 +58,7 @@ class HDF5Dataset(data.Dataset):
         self.dataset_name: str = dataset_name
         self.class_choice: Optional[str] = class_choice
         self.num_points: int = num_points
-        self.split: list[str] = split
+        self.split: list[str] = splits
         self.normalize: bool = normalize
         self.random_rotate: bool = random_rotate
         self.random_jitter: bool = random_jitter
@@ -213,7 +213,7 @@ if __name__ == "__main__":
         root=root,
         dataset_name=dataset_name,
         num_points=20480,
-        split=split,
+        splits=split,
         random_rotate=False,
         random_jitter=False,
         random_translate=False,

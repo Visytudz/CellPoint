@@ -35,7 +35,7 @@ class PretrainTrainer:
         self._setup_random_seed()
 
         # Instantiate components
-        self.train_loader = self._create_dataloader("train")
+        self.train_loader = self._create_dataloader(cfg.dataset.splits)
         self.model = self._build_model().to(self.device)
         self.loss_fn = ChamferLoss()
         self.optimizer = optim.AdamW(
@@ -65,7 +65,7 @@ class PretrainTrainer:
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(self.cfg.seed)
 
-    def _create_dataloader(self, split: str) -> DataLoader:
+    def _create_dataloader(self, splits: list[str]) -> DataLoader:
         """Creates a DataLoader for the specified data split.
 
         This method supports loading and concatenating multiple datasets of
@@ -73,15 +73,15 @@ class PretrainTrainer:
 
         Parameters
         ----------
-        split : str
-            The dataset split to load (e.g., 'train').
+        splits : list[str]
+            The dataset splits to load (e.g., ['train']).
 
         Returns
         -------
         DataLoader
-            The configured DataLoader for the specified split.
+            The configured DataLoader for the specified splits.
         """
-        log.info(f"Creating {split} dataloader...")
+        log.info(f"Creating {splits} dataloader...")
         datasets_to_concat = []
 
         for dataset_key in self.cfg.dataset.selected:
@@ -99,7 +99,7 @@ class PretrainTrainer:
                 dataset = HDF5Dataset(
                     root=ds_config.root,
                     dataset_name=ds_config.name,
-                    split=[split],
+                    splits=splits,
                     num_points=ds_config.num_points,
                     normalize=ds_config.get("normalize"),
                     random_jitter=ds_config.get("random_jitter"),
@@ -110,7 +110,7 @@ class PretrainTrainer:
                 dataset = ShapeNetDataset(
                     pc_path=ds_config.pc_path,
                     split_path=ds_config.split_path,
-                    split=split,
+                    splits=splits,
                     num_points=ds_config.num_points,
                 )
             else:
@@ -133,7 +133,7 @@ class PretrainTrainer:
         return DataLoader(
             final_dataset,
             batch_size=self.cfg.training.batch_size,
-            shuffle=(split == "train"),
+            shuffle=True,
             num_workers=self.cfg.training.num_workers,
         )
 
@@ -253,7 +253,7 @@ class PretrainTrainer:
 
             loss.backward()
             self.optimizer.step()
-            
+
             loss = loss * 1000  # Scale loss for better logging visibility
             total_loss += loss.item()
             progress_bar.set_postfix(loss=loss.item())

@@ -2,7 +2,7 @@ import os
 import torch
 import numpy as np
 import torch.utils.data as data
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 from cellpoint.utils.io import save_ply
 from cellpoint.utils.transforms import normalize_to_unit_sphere
@@ -13,7 +13,7 @@ class ShapeNetDataset(data.Dataset):
         self,
         pc_path: str,
         split_path: str,
-        split: str = "train",
+        splits: List[str] = ["train"],
         num_points: int = 2048,
     ):
         """
@@ -25,14 +25,17 @@ class ShapeNetDataset(data.Dataset):
             The directory where point cloud .npy files are stored.
         split_path : str
             The root directory of the list split files.
-        split : str, optional
-            The dataset split to use, e.g., 'train' or 'test'. Default is 'train'.
+        splits : List[str], optional
+            The dataset split(s) to use. Can be a list containing any combination of
+            "train", "val", and "test". Default is ["train"].
         num_points : int, optional
             The number of points to sample from each point cloud. Default is 2048.
         """
         self.pc_path = pc_path
         self.num_points = num_points
-        self.file_list = self._load_file_list(split_path, split)
+        self.file_list: List[Dict[str, str]] = []
+        for split in splits:
+            self.file_list.extend(self._load_file_list(split_path, split))
 
     def _load_file_list(self, split_path: str, split: str) -> list[Dict[str, str]]:
         """Loads the list of files for the specified dataset split."""
@@ -92,7 +95,7 @@ if __name__ == "__main__":
     dataset = ShapeNetDataset(
         pc_path="/home/verve/Project/research/CellPoint/datasets/shapenet55-34/pcl",
         split_path="/home/verve/Project/research/CellPoint/datasets/shapenet55-34/splits",
-        split="train",
+        splits=["train","test"],
         num_points=2048,
     )
     print(f"Dataset size: {len(dataset)}")

@@ -1,3 +1,5 @@
+splits: ["train", "test"]
+
 selected:
   - intestine
   - shapenetcorev2
