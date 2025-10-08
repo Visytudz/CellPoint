@@ -9,14 +9,14 @@ from tqdm import tqdm
 from omegaconf import DictConfig
 import wandb
 
-from cellpoint.datasets.HDF5Dataset import HDF5Dataset
+from cellpoint.datasets.hdf5_dataset import HDF5Dataset
 from cellpoint.models.foldingnet import Reconstructor
 from cellpoint.loss.chamfer_loss import ChamferLoss
 
 log = logging.getLogger(__name__)
 
 
-class Trainer:
+class FoldingNetTrainer:
     def __init__(self, cfg: DictConfig, output_dir: str):
         """
         Initializes the Trainer.

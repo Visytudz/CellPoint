@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 from cellpoint.utils.io import load_ply
 from cellpoint.models.foldingnet import Reconstructor
-from cellpoint.datasets.HDF5Dataset import HDF5Dataset, normalize_to_unit_sphere
+from cellpoint.datasets.hdf5_dataset import HDF5Dataset, normalize_to_unit_sphere
 
 log = logging.getLogger(__name__)
 
