@@ -25,7 +25,7 @@ class PointPQAE(nn.Module):
         self.config = config
 
         self.view_generator = PointViewGenerator(**config.view_generator)
-        self.grouping = Group(**config.group)
+        self.grouping = Group(**config.grouping)
         self.patch_embed = PatchEmbed(**config.patch_embed)
         self.encoder = EncoderWrapper(**config.encoder)
         self.positional_query = PositionalQuery(**config.positional_query)

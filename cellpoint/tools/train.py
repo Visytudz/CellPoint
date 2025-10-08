@@ -140,7 +140,7 @@ class PretrainTrainer:
         if model_config.name == "foldingnet":
             return FoldingNetReconstructor(**model_config.params)
         elif model_config.name == "pqae":
-            return PointPQAE(**model_config.params)
+            return PointPQAE(model_config.params)
         else:
             raise ValueError(f"Unknown model name: {model_config.name}")
 
