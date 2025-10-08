@@ -206,9 +206,9 @@ class HDF5Dataset(data.Dataset):
 
 
 if __name__ == "__main__":
-    root = "datasets/3dcell"
-    dataset_name = "2048"
-    split = ["train"]
+    root = "datasets"
+    dataset_name = "shapenetcorev2"
+    split = ["train", "val", "test"]
     dataset = HDF5Dataset(
         root=root,
         dataset_name=dataset_name,
