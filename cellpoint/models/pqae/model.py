@@ -56,7 +56,7 @@ class PointPQAE(nn.Module):
         tokens = self.patch_embed(neighborhood)
         return neighborhood, centers, tokens
 
-    def forward(self, pts: torch.Tensor) -> dict:
+    def forward(self, pts: torch.Tensor, viz: bool = False) -> dict:
         """
         The main forward pass for the pre-training task.
 
@@ -64,6 +64,8 @@ class PointPQAE(nn.Module):
         ----------
         pts : torch.Tensor
             The input batch of point clouds. Shape: (B, N, 3).
+        viz : bool, optional
+            If True, returns visualization data. Default is False.
 
         Returns
         -------
@@ -99,12 +101,26 @@ class PointPQAE(nn.Module):
         reconstructed_patches_2 = self.reconstruction_head(queried_features_2)
 
         B, G, K, C_in = neighborhood1.shape
-        return {
-            "reconstructed_view1": reconstructed_patches_1.view(B, G, K, C_in),
-            "reconstructed_view2": reconstructed_patches_2.view(B, G, K, C_in),
-            "target_view1": neighborhood1,  # (B, G, K, C_in)
-            "target_view2": neighborhood2,  # (B, G, K, C_in)
-        }
+        reconstructed_patches_1 = reconstructed_patches_1.reshape(B, G, K, C_in)
+        reconstructed_patches_2 = reconstructed_patches_2.reshape(B, G, K, C_in)
+        if viz:
+            return {
+                "reconstructed_view1": reconstructed_patches_1
+                + centers1.unsqueeze(2),  # (B, G, K, C_in)
+                "reconstructed_view2": reconstructed_patches_2
+                + centers2.unsqueeze(2),  # (B, G, K, C_in)
+                "target_view1": neighborhood1
+                + centers1.unsqueeze(2),  # (B, G, K, C_in)
+                "target_view2": neighborhood2
+                + centers2.unsqueeze(2),  # (B, G, K, C_in)
+            }
+        else:
+            return {
+                "reconstructed_view1": reconstructed_patches_1,
+                "reconstructed_view2": reconstructed_patches_2,
+                "target_view1": neighborhood1,
+                "target_view2": neighborhood2,
+            }
 
 
 if __name__ == "__main__":

@@ -193,21 +193,21 @@ class PretrainTrainer:
 
         # Fetch both points and their IDs
         points_list = [train_dataset[i]["points"] for i in valid_indices]
-        ids_list = [train_dataset[i].get("id", f"index_{i}") for i in valid_indices]
         batch_tensor = torch.stack(points_list).to(self.device)
+        path_list = [
+            self.vis_root_dir / f"{i}_{train_dataset[i].get('id', f'index_{i}')}"
+            for i in valid_indices
+        ]
 
         # Create directories and save ground truths
         log.info(f"Saving ground truth visualization files to: {self.vis_root_dir}")
-        for i, sample_id in enumerate(ids_list):
-            sample_dir = self.vis_root_dir / str(sample_id)
+        for i, sample_dir in enumerate(path_list):
             sample_dir.mkdir(parents=True, exist_ok=True)
-
             gt_path = sample_dir / "ground_truth.ply"
-            if not gt_path.exists():
-                gt_points_np = points_list[i].cpu().numpy()
-                save_ply(gt_points_np, str(gt_path))
+            gt_points_np = points_list[i].cpu().numpy()
+            save_ply(gt_points_np, str(gt_path))
 
-        return {"points": batch_tensor, "ids": ids_list}
+        return {"points": batch_tensor, "paths": path_list}
 
     def _compute_pqae_loss(self, outputs: dict) -> torch.Tensor:
         # Unpack outputs
@@ -274,22 +274,18 @@ class PretrainTrainer:
         self.model.eval()
 
         points_batch = self.visualization_data["points"]
-        ids_batch = self.visualization_data["ids"]
+        paths_batch = self.visualization_data["paths"]
 
         with torch.no_grad():
             if self.cfg.model.name == "foldingnet":
                 reconstructed_points = self.model(points_batch)
-                for i in range(reconstructed_points.shape[0]):
-                    recon_path = (
-                        self.vis_root_dir
-                        / str(ids_batch[i])
-                        / f"recon_epoch_{self.epoch}.ply"
-                    )
+                for i, sample_dir in enumerate(paths_batch):
+                    recon_path = sample_dir / f"recon_epoch_{self.epoch}.ply"
                     recon_pc_np = reconstructed_points[i].cpu().numpy()
                     save_ply(recon_pc_np, str(recon_path))
 
             elif self.cfg.model.name == "pqae":
-                outputs = self.model(points_batch)
+                outputs = self.model(points_batch, viz=True)
                 B, G, K, C = outputs["reconstructed_view1"].shape
                 for key, value in outputs.items():
                     outputs[key] = value.reshape(B, G * K, C)
@@ -308,9 +304,9 @@ class PretrainTrainer:
                 ]
 
                 # Iterate through each sample in the batch
-                for i in range(B):
+                for i, sample_dir in enumerate(paths_batch):
                     for key, filename in save_tasks:
-                        filepath = self.vis_root_dir / str(ids_batch[i]) / filename
+                        filepath = sample_dir / filename
                         point_cloud_np = outputs[key][i].cpu().numpy()
                         save_ply(point_cloud_np, str(filepath))
 
@@ -349,7 +345,7 @@ class PretrainTrainer:
                     {
                         "epoch": self.epoch,
                         "train_loss": train_loss,
-                        "learning_rate": self.scheduler.get_last_lr()[0],
+                        "learning_rate": self.optimizer.param_groups[0]["lr"],
                     }
                 )
 
