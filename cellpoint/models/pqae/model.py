@@ -122,15 +122,15 @@ if __name__ == "__main__":
     from omegaconf import OmegaConf
 
     cfg = {
-        "min_crop_rate": 0.7,
+        "min_crop_rate": 0.6,
         "num_group": 64,
         "group_size": 32,
         "embed_dim": 384,
         "in_channels": 3,
-        "encoder_depth": 6,
-        "encoder_num_heads": 8,
+        "encoder_depth": 12,
+        "encoder_num_heads": 6,
         "decoder_depth": 4,
-        "decoder_num_heads": 8,
+        "decoder_num_heads": 6,
         "drop_path_rate": 0.1,
         "mlp_ratio": 4.0,
         "qkv_bias": False,
