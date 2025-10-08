@@ -4,7 +4,7 @@ import wandb
 import logging
 from omegaconf import DictConfig, OmegaConf
 
-from cellpoint.tools.train.foldingnet_trainer import FoldingNetTrainer
+from cellpoint.tools.train.generic_trainer import GenericTrainer
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def main(cfg: DictConfig) -> None:
     output_dir = os.getcwd()
     log.info(f"Working directory for this run: {output_dir}")
 
-    trainer = FoldingNetTrainer(cfg, output_dir=output_dir)
+    trainer = GenericTrainer(cfg, output_dir=output_dir)
     trainer.fit()
 
     if cfg.training.wandb.log:

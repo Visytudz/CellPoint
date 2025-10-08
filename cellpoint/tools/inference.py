@@ -10,7 +10,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 
 from cellpoint.utils.io import load_ply
-from cellpoint.models.foldingnet import Reconstructor
+from cellpoint.models.foldingnet.model import FoldingNetReconstructor
 from cellpoint.datasets.hdf5_dataset import HDF5Dataset, normalize_to_unit_sphere
 
 log = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class Inferencer:
         if not os.path.exists(checkpoint_path):
             raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
         log.info(f"Loading model from checkpoint: {checkpoint_path}")
-        model = Reconstructor(**model_config)
+        model = FoldingNetReconstructor(**model_config)
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         model.load_state_dict(checkpoint["model_state_dict"])
         log.info("Model loaded successfully.")

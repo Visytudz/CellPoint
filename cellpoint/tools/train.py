@@ -1,22 +1,23 @@
 import os
+import wandb
 import logging
+from tqdm import tqdm
 from pathlib import Path
+from omegaconf import DictConfig
 
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader, ConcatDataset
-from tqdm import tqdm
-from omegaconf import DictConfig
-import wandb
 
-from cellpoint.datasets.hdf5_dataset import HDF5Dataset
-from cellpoint.models.foldingnet import Reconstructor
-from cellpoint.loss.chamfer_loss import ChamferLoss
+from cellpoint.loss import ChamferLoss
+from cellpoint.datasets import HDF5Dataset, ShapeNetDataset
+from cellpoint.models import FoldingNetReconstructor, PointPQAE
+
 
 log = logging.getLogger(__name__)
 
 
-class FoldingNetTrainer:
+class PretrainTrainer:
     def __init__(self, cfg: DictConfig, output_dir: str):
         """
         Initializes the Trainer.
@@ -106,8 +107,21 @@ class FoldingNetTrainer:
         )
 
     def _build_model(self) -> torch.nn.Module:
-        """Builds the FoldingNet model from the configuration."""
-        return Reconstructor(**self.cfg.model)
+        """Builds the model from the configuration."""
+        log.info(f"Building model: {self.cfg.model.name}")
+        model_config = self.cfg.model
+        if model_config.name == "foldingnet":
+            # Reconstructor expects kwargs from the model config, but not the 'name' key.
+            return FoldingNetReconstructor(
+                encoder_name=model_config.encoder_name,
+                encoder_args=model_config.encoder_args,
+                decoder_name=model_config.decoder_name,
+                decoder_args=model_config.decoder_args,
+            )
+        elif model_config.name == "pqae":
+            return PointPQAE(model_config)
+        else:
+            raise ValueError(f"Unknown model name: {model_config.name}")
 
     def _load_checkpoint(self):
         """Loads a checkpoint to resume training or for fine-tuning."""
@@ -176,10 +190,24 @@ class FoldingNetTrainer:
 
         for batch in progress_bar:
             points = batch["points"].to(self.device)
-            reconstructed_points = self.model(points)
-            loss = self.loss_fn(points, reconstructed_points)
 
             self.optimizer.zero_grad()
+
+            if self.cfg.model.name == "foldingnet":
+                reconstructed_points = self.model(points)
+                loss = self.loss_fn(points, reconstructed_points)
+            elif self.cfg.model.name == "pqae":
+                outputs = self.model(points)
+                loss1 = self.loss_fn(
+                    outputs["reconstructed_view1"], outputs["target_view1"]
+                )
+                loss2 = self.loss_fn(
+                    outputs["reconstructed_view2"], outputs["target_view2"]
+                )
+                loss = loss1 + loss2
+            else:
+                raise ValueError(f"Unknown model name: {self.cfg.model.name}")
+
             loss.backward()
             self.optimizer.step()
 
@@ -195,9 +223,24 @@ class FoldingNetTrainer:
         with torch.no_grad():
             for batch in self.val_loader:
                 points = batch["points"].to(self.device)
-                reconstructed_points = self.model(points)
-                loss = self.loss_fn(points, reconstructed_points)
+
+                if self.cfg.model.name == "foldingnet":
+                    reconstructed_points = self.model(points)
+                    loss = self.loss_fn(points, reconstructed_points)
+                elif self.cfg.model.name == "pqae":
+                    outputs = self.model(points)
+                    loss1 = self.loss_fn(
+                        outputs["reconstructed_view1"], outputs["target_view1"]
+                    )
+                    loss2 = self.loss_fn(
+                        outputs["reconstructed_view2"], outputs["target_view2"]
+                    )
+                    loss = loss1 + loss2
+                else:
+                    raise ValueError(f"Unknown model name: {self.cfg.model.name}")
+
                 total_loss += loss.item()
+        return total_loss / len(self.val_loader)
 
         return total_loss / len(self.val_loader)
 
