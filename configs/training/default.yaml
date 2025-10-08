@@ -1,17 +1,18 @@
 # hyperparameters
 batch_size: 8
-epochs: 2000
-lr: 0.001
-weight_decay: 1e-6
+epochs: 300
+warmup_epochs: 10
+lr: 0.0005
+weight_decay: 0.05
 min_lr: 1e-7
 
 # other settings
 num_workers: 4
-save_interval: 25
+save_interval: 10
 
 # Visualization settings
 visualize_every_n_epochs: 25
-visualization_indices: [0, 1, 71, 72]
+visualization_indices: [65,888]
 
 # Checkpoint settings
 checkpoint_path: null

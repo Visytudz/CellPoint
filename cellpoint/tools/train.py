@@ -7,6 +7,7 @@ from omegaconf import DictConfig
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader, ConcatDataset
+from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 
 from cellpoint.utils.io import save_ply
 from cellpoint.loss import ChamferLoss
@@ -42,10 +43,24 @@ class PretrainTrainer:
             lr=self.cfg.training.lr,
             weight_decay=self.cfg.training.weight_decay,
         )
-        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
+        # 1. Define the warmup scheduler
+        warmup_scheduler = LinearLR(
             self.optimizer,
-            T_max=self.cfg.training.epochs,
+            start_factor=1e-6,  # Start from a very small learning rate
+            end_factor=1.0,
+            total_iters=self.cfg.training.warmup_epochs,
+        )
+        # 2. Define the main cosine annealing scheduler
+        main_scheduler = CosineAnnealingLR(
+            self.optimizer,
+            T_max=self.cfg.training.epochs - self.cfg.training.warmup_epochs,
             eta_min=self.cfg.training.min_lr,
+        )
+        # 3. Chain them together with SequentialLR
+        self.scheduler = SequentialLR(
+            self.optimizer,
+            schedulers=[warmup_scheduler, main_scheduler],
+            milestones=[self.cfg.training.warmup_epochs],
         )
 
         # State attributes
