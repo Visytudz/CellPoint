@@ -1,8 +1,9 @@
 defaults:
   - dataset: default
-  - model: default
+  - model: foldingnet
   - training: default
   - hydra: default
+  - wandb: default
   - _self_
 
 # global variables

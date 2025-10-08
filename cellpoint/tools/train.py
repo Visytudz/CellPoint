@@ -327,10 +327,8 @@ class PretrainTrainer:
         log.info(f"Train dataset size: {len(self.train_loader.dataset)}")
         log.info(f"Starting pre-training from epoch {self.epoch + 1}.")
 
-        if self.cfg.training.wandb.log:
-            wandb.watch(
-                self.model, log="gradients", log_freq=self.cfg.training.wandb.log_freq
-            )
+        if self.cfg.wandb.log:
+            wandb.watch(self.model, log="gradients", log_freq=self.cfg.wandb.log_freq)
 
         for epoch in range(self.epoch + 1, self.cfg.training.epochs + 1):
             self.epoch = epoch
@@ -340,7 +338,7 @@ class PretrainTrainer:
             log.info(
                 f"Epoch {self.epoch}/{self.cfg.training.epochs} | Train Loss: {train_loss:.4f}"
             )
-            if self.cfg.training.wandb.log:
+            if self.cfg.wandb.log:
                 wandb.log(
                     {
                         "epoch": self.epoch,

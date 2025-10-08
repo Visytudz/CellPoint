@@ -16,13 +16,3 @@ visualization_indices: [0, 1, 71, 72]
 # Checkpoint settings
 checkpoint_path: null
 resume_training: false 
-
-# Weights & Biases (W&B) logging configuration
-wandb:
-  log: true # enable or disable W&B logging
-  project: ${project_name} # align with project_name in config.yaml
-  name: null # run name, use null for auto-generated
-  id: null # use null for new run, or specify an ID to resume
-  resume: "allow" # options: "never", "must", "allow"
-  mode: "online"  # options: "online", "offline", "disabled"
-  log_freq: 10 # log every n steps
