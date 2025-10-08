@@ -1,8 +1,8 @@
 name: foldingnet
 
 params:
- - feat_dims: 512
- - k: 16
- - grid_size: 45
- - grid_type: "sphere" # "plane" or "sphere"
- - encoder_type: "dgcnn" # "foldingnet" or "dgcnn"
+  feat_dims: 512
+  k: 16
+  grid_size: 45
+  grid_type: "sphere" # "plane" or "sphere"
+  encoder_type: "dgcnn" # "foldingnet" or "dgcnn"

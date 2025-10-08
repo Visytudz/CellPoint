@@ -1,14 +1,57 @@
 name: pqae
 
-# Point-PQAE Model Configuration
 params:
- - min_crop_rate: 0.6
- - num_group: 64
- - group_size: 32
- - embed_dim: 384
- - trans_dim: 384
- - encoder_depth: 12
- - encoder_num_heads: 6
- - decoder_depth: 4
- - decoder_num_heads: 6
- - drop_path_rate: 0.1
+  # ----------------------------------------------------------------
+  # Shared variables for reuse across different modules
+  # ----------------------------------------------------------------
+  embed_dim: 384          # Main embedding dimension for the transformer blocks
+  group_size: 32          # Number of points in each local patch (group)
+  in_channels: 3          # Input dimension of points (X, Y, Z)
+  mlp_ratio: 4.0          # Ratio for the hidden dimension in MLP blocks
+  qkv_bias: True          # Whether to use bias in query, key, value projections
+  proj_drop: 0.0          # Dropout rate for projection layers
+  attn_drop: 0.0          # Dropout rate for attention layers
+  decoder_num_heads: 6    # Number of attention heads for decoder-related parts
+
+  # ----------------------------------------------------------------
+  # Parameters for each specific module
+  # ----------------------------------------------------------------
+  view_generator:
+    min_crop_rate: 0.6
+
+  group:
+    num_group: 64
+    group_size: ${params.group_size} # Reusing shared variable
+
+  patch_embed:
+    in_channels: ${params.in_channels} # Reusing shared variable
+    embed_dim: ${params.embed_dim}     # Reusing shared variable
+
+  encoder:
+    embed_dim: ${params.embed_dim}
+    depth: 12
+    num_heads: 6
+    mlp_ratio: ${params.mlp_ratio}
+    qkv_bias: ${params.qkv_bias}
+    proj_drop: ${params.proj_drop}
+    attn_drop: ${params.attn_drop}
+    drop_path_rate: 0.1
+
+  positional_query:
+    embed_dim: ${params.embed_dim}
+    num_heads: ${params.decoder_num_heads} # Using decoder-specific head count
+    qkv_bias: ${params.qkv_bias}
+    proj_drop: ${params.proj_drop}
+    attn_drop: ${params.attn_drop}
+
+  reconstruction_head:
+    embed_dim: ${params.embed_dim}
+    depth: 4
+    num_heads: ${params.decoder_num_heads} # Using decoder-specific head count
+    group_size: ${params.group_size}
+    mlp_ratio: ${params.mlp_ratio}
+    qkv_bias: ${params.qkv_bias}
+    proj_drop: ${params.proj_drop}
+    attn_drop: ${params.attn_drop}
+    drop_path_rate: 0.0
+    C_out: ${params.in_channels} # Output dimension should match input

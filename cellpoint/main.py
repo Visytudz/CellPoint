@@ -27,7 +27,7 @@ def main(cfg: DictConfig) -> None:
     trainer = PretrainTrainer(cfg, output_dir=output_dir)
     trainer.fit()
 
-    if cfg.training.wandb.log:
+    if cfg.wandb.log:
         wandb.finish()
     log.info("Process finished.")
 

@@ -77,7 +77,7 @@ class ShapeNetDataset(data.Dataset):
 
         sample = {
             "points": point_cloud_tensor,
-            "name": sample_info["path"],
+            "label": sample_info["label"],
             "id": sample_info["id"],
         }
 
@@ -90,12 +90,14 @@ class ShapeNetDataset(data.Dataset):
 
 if __name__ == "__main__":
     dataset = ShapeNetDataset(
-        pc_path="/home/verve/Project/research/CellPoint/datasets/ShapeNet55-34/pcl",
-        split_path="/home/verve/Project/research/CellPoint/datasets/ShapeNet55-34/splits",
+        pc_path="/home/verve/Project/research/CellPoint/datasets/shapenet55-34/pcl",
+        split_path="/home/verve/Project/research/CellPoint/datasets/shapenet55-34/splits",
         split="train",
         num_points=2048,
     )
     print(f"Dataset size: {len(dataset)}")
     sample = dataset[0]
-    print(f"Sample keys: {list(sample.keys())}")
+    print(f"Sample ID: {sample['id']}")
+    print(f"Sample Label: {sample['label']}")
+    print(f"Sample Name: {sample['points']}")
     print(f"Point cloud shape: {sample['points'].shape}")

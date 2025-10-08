@@ -24,40 +24,12 @@ class PointPQAE(nn.Module):
         super().__init__()
         self.config = config
 
-        self.view_generator = PointViewGenerator(min_crop_rate=config.min_crop_rate)
-        self.grouping = Group(num_group=config.num_group, group_size=config.group_size)
-        self.patch_embed = PatchEmbed(
-            in_channels=config.in_channels, embed_dim=config.embed_dim
-        )
-        self.encoder = EncoderWrapper(
-            embed_dim=config.embed_dim,
-            depth=config.encoder_depth,
-            num_heads=config.encoder_num_heads,
-            mlp_ratio=config.mlp_ratio,
-            qkv_bias=config.qkv_bias,
-            proj_drop=config.proj_drop,
-            attn_drop=config.attn_drop,
-            drop_path_rate=config.drop_path_rate,
-        )
-        self.positional_query = PositionalQuery(
-            embed_dim=config.embed_dim,
-            num_heads=config.decoder_num_heads,
-            qkv_bias=config.qkv_bias,
-            proj_drop=config.proj_drop,
-            attn_drop=config.attn_drop,
-        )
-        self.reconstruction_head = ReconstructionHead(
-            embed_dim=config.embed_dim,
-            depth=config.decoder_depth,
-            num_heads=config.decoder_num_heads,
-            group_size=config.group_size,
-            qkv_bias=config.qkv_bias,
-            proj_drop=config.proj_drop,
-            attn_drop=config.attn_drop,
-            drop_path_rate=config.drop_path_rate,
-            mlp_ratio=config.mlp_ratio,
-            C_out=config.in_channels,
-        )
+        self.view_generator = PointViewGenerator(**config.view_generator)
+        self.grouping = Group(**config.group)
+        self.patch_embed = PatchEmbed(**config.patch_embed)
+        self.encoder = EncoderWrapper(**config.encoder)
+        self.positional_query = PositionalQuery(**config.positional_query)
+        self.reconstruction_head = ReconstructionHead(**config.reconstruction_head)
 
     def _get_tokens(
         self, view: torch.Tensor

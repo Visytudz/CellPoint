@@ -1,7 +1,6 @@
 selected:
   - intestine
   - shapenetcorev2
-  - shapenet55-34
 
 available:
   shapenet55-34:
