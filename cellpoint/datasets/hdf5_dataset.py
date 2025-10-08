@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 from typing import List, Tuple, Dict, Optional, Any
 
 from cellpoint.utils.io import save_ply
-from cellpoint.utils.transforms import (
+from cellpoint.utils.process import (
     normalize_to_unit_sphere,
     jitter_pointcloud,
     translate_pointcloud,

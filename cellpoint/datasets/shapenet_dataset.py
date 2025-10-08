@@ -5,7 +5,7 @@ import torch.utils.data as data
 from typing import Dict, Optional, Any, List
 
 from cellpoint.utils.io import save_ply
-from cellpoint.utils.transforms import normalize_to_unit_sphere
+from cellpoint.utils.process import normalize_to_unit_sphere
 
 
 class ShapeNetDataset(data.Dataset):
