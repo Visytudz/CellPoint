@@ -256,7 +256,11 @@ class PretrainTrainer:
 
     def _visualize_reconstructions(self):
         """Runs model inference on the visualization batch and saves the
-        reconstructed point clouds locally."""
+        reconstructed point clouds locally.
+
+        For PQAE, this function saves both reconstructed views and their
+        corresponding target views (ground truth).
+        """
         if self.visualization_data is None:
             return
 
@@ -269,24 +273,40 @@ class PretrainTrainer:
         with torch.no_grad():
             if self.cfg.model.name == "foldingnet":
                 reconstructed_points = self.model(points_batch)
+                for i in range(reconstructed_points.shape[0]):
+                    recon_path = (
+                        self.vis_root_dir
+                        / str(ids_batch[i])
+                        / f"recon_epoch_{self.epoch}.ply"
+                    )
+                    recon_pc_np = reconstructed_points[i].cpu().numpy()
+                    save_ply(recon_pc_np, str(recon_path))
+
             elif self.cfg.model.name == "pqae":
                 outputs = self.model(points_batch)
                 B, G, K, C = outputs["reconstructed_view1"].shape
-                # We visualize the reconstruction of the first view
-                reconstructed_points = outputs["reconstructed_view1"].reshape(
-                    B, G * K, C
-                )
-            else:
-                reconstructed_points = self.model(points_batch)
+                for key, value in outputs.items():
+                    outputs[key] = value.reshape(B, G * K, C)
 
-        # Save reconstruction .ply files locally
-        for i in range(reconstructed_points.shape[0]):
-            sample_id = ids_batch[i]
-            recon_pc_np = reconstructed_points[i].cpu().numpy()
-            sample_dir = self.vis_root_dir / str(sample_id)
-            # Filename includes the epoch number to track progress
-            recon_path = sample_dir / f"reconstruction_epoch_{self.epoch}.ply"
-            save_ply(recon_pc_np, str(recon_path))
+                save_tasks = [
+                    ("target_view1", f"gt_view1_epoch_{self.epoch}.ply"),
+                    ("target_view2", f"gt_view2_epoch_{self.epoch}.ply"),
+                    (
+                        "reconstructed_view1",
+                        f"recon_view1_epoch_{self.epoch}.ply",
+                    ),
+                    (
+                        "reconstructed_view2",
+                        f"recon_view2_epoch_{self.epoch}.ply",
+                    ),
+                ]
+
+                # Iterate through each sample in the batch
+                for i in range(B):
+                    for key, filename in save_tasks:
+                        filepath = self.vis_root_dir / str(ids_batch[i]) / filename
+                        point_cloud_np = outputs[key][i].cpu().numpy()
+                        save_ply(point_cloud_np, str(filepath))
 
     def _save_last_checkpoint(self):
         """Saves the latest model state."""
