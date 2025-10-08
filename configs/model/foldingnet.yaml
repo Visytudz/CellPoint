@@ -1,13 +1,8 @@
-# @package _group_
 name: foldingnet
 
-# FoldingNet Model Configuration
-encoder_name: "pointnet"
-encoder_args:
-  feat_dims: 512
-
-decoder_name: "folding"
-decoder_args:
-  grid_dims: [45, 45]
-  grid_size: 2025
-  feat_dims: 512
+params:
+ - feat_dims: 512
+ - k: 16
+ - grid_size: 45
+ - grid_type: "sphere" # "plane" or "sphere"
+ - encoder_type: "dgcnn" # "foldingnet" or "dgcnn"

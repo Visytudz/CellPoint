@@ -32,7 +32,7 @@ class PretrainTrainer:
         self.cfg = cfg
         self.output_dir = Path(output_dir)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self._setup_reproducibility()
+        self._setup_random_seed()
 
         # Instantiate components
         self.train_loader = self._create_dataloader("train")
@@ -56,7 +56,7 @@ class PretrainTrainer:
         self._load_checkpoint()
         self.visualization_batch = self._prepare_visualization_batch()
 
-    def _setup_reproducibility(self):
+    def _setup_random_seed(self):
         """Sets random seeds for reproducibility."""
         log.info(f"Setting random seed to {self.cfg.seed}")
         torch.manual_seed(self.cfg.seed)
@@ -111,15 +111,9 @@ class PretrainTrainer:
         log.info(f"Building model: {self.cfg.model.name}")
         model_config = self.cfg.model
         if model_config.name == "foldingnet":
-            # Reconstructor expects kwargs from the model config, but not the 'name' key.
-            return FoldingNetReconstructor(
-                encoder_name=model_config.encoder_name,
-                encoder_args=model_config.encoder_args,
-                decoder_name=model_config.decoder_name,
-                decoder_args=model_config.decoder_args,
-            )
+            return FoldingNetReconstructor(**model_config.params)
         elif model_config.name == "pqae":
-            return PointPQAE(model_config)
+            return PointPQAE(**model_config.params)
         else:
             raise ValueError(f"Unknown model name: {model_config.name}")
 
@@ -240,8 +234,6 @@ class PretrainTrainer:
                     raise ValueError(f"Unknown model name: {self.cfg.model.name}")
 
                 total_loss += loss.item()
-        return total_loss / len(self.val_loader)
-
         return total_loss / len(self.val_loader)
 
     def _visualize_reconstructions(self):
