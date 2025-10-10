@@ -61,6 +61,7 @@ class PretrainTrainer:
 
         # State attributes
         self.epoch = 0
+        self.best_train_loss = float("inf")
         self._load_checkpoint()
         self.vis_root_dir = self.output_dir / "visualizations"
         self.visualization_data = self._prepare_visualization_batch()
@@ -202,6 +203,7 @@ class PretrainTrainer:
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
             self.epoch = checkpoint["epoch"]
+            self.best_train_loss = checkpoint.get("train_loss")
             log.info(f"Resuming training from epoch {self.epoch + 1}.")
         else:
             log.info("Loaded model weights only.")
@@ -344,19 +346,20 @@ class PretrainTrainer:
                         point_cloud_np = outputs[key][i].cpu().numpy()
                         save_ply(point_cloud_np, str(filepath))
 
-    def _save_last_checkpoint(self):
-        """Saves the latest model state."""
-        checkpoint_path = self.output_dir / "last_model.pth"
+    def _save_checkpoint(self, file_name: str):
+        """Saves the model state to a file."""
+        checkpoint_path = self.output_dir / file_name
         torch.save(
             {
                 "epoch": self.epoch,
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "scheduler_state_dict": self.scheduler.state_dict(),
+                "train_loss": self.best_train_loss,
             },
             checkpoint_path,
         )
-        log.info(f"Saved latest checkpoint to {checkpoint_path} at epoch {self.epoch}")
+        log.info(f"Saved checkpoint to {checkpoint_path} at epoch {self.epoch}")
 
     def fit(self):
         log.info(f"Using device: {self.device}")
@@ -393,11 +396,14 @@ class PretrainTrainer:
 
             # Other housekeeping
             self.scheduler.step(self.epoch)
+            if train_loss < self.best_train_loss:
+                self.best_train_loss = train_loss
+                self._save_checkpoint("best_model.pth")
             save_interval = self.cfg.training.get("save_interval", 50)
             if (
                 self.epoch % save_interval == 0
                 or self.epoch == self.cfg.training.epochs
             ):
-                self._save_last_checkpoint()
+                self._save_checkpoint("last_model.pth")
 
         log.info("Pre-training finished.")

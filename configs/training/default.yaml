@@ -21,7 +21,7 @@ resume_training: false
 # data augmentation settings
 augmentations:
   rotate: true
-  scale_and_translate: true
+  scale_and_translate: false
   jitter: true
   
   scale_low: 0.8
