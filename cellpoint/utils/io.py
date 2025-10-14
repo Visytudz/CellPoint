@@ -21,7 +21,7 @@ def save_ply(points: np.ndarray, filename: str) -> None:
     ]
     with open(filename, "w") as f:
         f.write("\n".join(header) + "\n")
-        np.savetxt(f, points, fmt="%.6f")
+        np.savetxt(f, points, fmt="%.10f")
 
 
 def load_ply(file_path: str) -> np.ndarray:

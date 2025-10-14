@@ -16,11 +16,18 @@ class PointViewGenerator(nn.Module):
     ----------
     min_crop_rate : float, optional
         The minimum percentage of points to keep in a crop, by default 0.6.
+    max_crop_rate : float, optional
+        The maximum percentage of points to keep in a crop, by default 1.0.
     """
 
-    def __init__(self, min_crop_rate: float = 0.6):
+    def __init__(self, min_crop_rate: float = 0.6, max_crop_rate: float = 1.0):
         super().__init__()
         self.min_crop_rate = min_crop_rate
+        self.max_crop_rate = max_crop_rate
+        assert 0.0 < self.min_crop_rate <= self.max_crop_rate <= 1.0, (
+            "min_crop_rate and max_crop_rate must satisfy 0.0 < min_crop_rate <= "
+            "max_crop_rate <= 1.0"
+        )
 
     def _crop_and_normalize(
         self, pts: torch.Tensor
@@ -29,11 +36,7 @@ class PointViewGenerator(nn.Module):
         Performs a single random crop and normalization on a batch of point clouds.
         """
         # Determine the crop rate for this operation
-        if self.min_crop_rate >= 1.0:
-            crop_rate = 1.0
-        else:
-            crop_rate = np.random.uniform(self.min_crop_rate, 1.0)
-
+        crop_rate = np.random.uniform(self.min_crop_rate, self.max_crop_rate)
         batch_size, n_points, _ = pts.shape
         num_cropped_points = int(n_points * crop_rate)
 
@@ -79,12 +82,11 @@ class PointViewGenerator(nn.Module):
 
         Returns
         -------
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+        tuple[torch.Tensor,(torch.Tensor, torch.Tensor),(torch.Tensor, torch.Tensor)]
             A tuple containing:
-            - relative_center: The vector difference between the original geometric
-              centers of view 2 and view 1. Shape: (B, 3).
-            - view1: The first processed (cropped, normalized, rotated) view.
-            - view2: The second processed view.
+            - relative_center: The relative position of the centers of the two views. Shape: (B, 3).
+            - (view1_rotated, view1): The first view and its unrotated version. Each of shape (B, M1, 3).
+            - (view2_rotated, view2): The second view and its unrotated version. Each of shape (B, M2, 3).
         """
         # Generate the first view
         view1, center1 = self._crop_and_normalize(pts)
@@ -92,10 +94,10 @@ class PointViewGenerator(nn.Module):
         view2, center2 = self._crop_and_normalize(pts)
 
         # Apply independent random rotations to each view
-        view1 = batch_rotate_torch(view1)
-        view2 = batch_rotate_torch(view2)
+        view1_rotated = batch_rotate_torch(view1)
+        view2_rotated = batch_rotate_torch(view2)
 
         # Calculate the relative position of the original centers
         relative_center = center2 - center1
 
-        return relative_center, view1, view2
+        return relative_center, (view1_rotated, view1), (view2_rotated, view2)

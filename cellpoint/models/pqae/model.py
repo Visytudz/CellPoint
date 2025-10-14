@@ -73,12 +73,14 @@ class PointPQAE(nn.Module):
             A dictionary containing the calculated losses, e.g., {'loss': total_loss}.
         """
         # 1. Generate two decoupled views and their relative position
-        relative_center_2_to_1, view1, view2 = self.view_generator(pts)
+        relative_center_2_to_1, (view1_rotated, view1), (view2_rotated, view2) = (
+            self.view_generator(pts)
+        )
         relative_center_1_to_2 = -relative_center_2_to_1
 
         # 2. Tokenize and get initial embeddings for both views
-        neighborhood1, centers1, tokens1 = self._get_tokens(view1)
-        neighborhood2, centers2, tokens2 = self._get_tokens(view2)
+        neighborhood1, centers1, tokens1 = self._get_tokens(view1_rotated)
+        neighborhood2, centers2, tokens2 = self._get_tokens(view2_rotated)
 
         # 3. Encode both token sequences using the shared encoder
         _, encoded_tokens1 = self.encoder(tokens1, centers1)
@@ -105,14 +107,20 @@ class PointPQAE(nn.Module):
         reconstructed_patches_2 = reconstructed_patches_2.reshape(B, G, K, C_in)
         if viz:
             return {
-                "reconstructed_view1": reconstructed_patches_1
-                + centers1.unsqueeze(2),  # (B, G, K, C_in)
-                "reconstructed_view2": reconstructed_patches_2
-                + centers2.unsqueeze(2),  # (B, G, K, C_in)
+                "input": pts,  # (B, N, 3)
+                "view1": view1,  # (B, M1, 3)
+                "view2": view2,  # (B, M2, 3)
+                "view1_rotated": view1_rotated,  # (B, M1, 3)
+                "view2_rotated": view2_rotated,  # (B, M2, 3)
                 "target_view1": neighborhood1
                 + centers1.unsqueeze(2),  # (B, G, K, C_in)
                 "target_view2": neighborhood2
                 + centers2.unsqueeze(2),  # (B, G, K, C_in)
+                "reconstructed_view1": reconstructed_patches_1
+                + centers1.unsqueeze(2),  # (B, G, K, C_in)
+                "reconstructed_view2": reconstructed_patches_2
+                + centers2.unsqueeze(2),  # (B, G, K, C_in)
+                "relative_center_1_to_2": relative_center_1_to_2,  # (B, 3)
             }
         else:
             return {
