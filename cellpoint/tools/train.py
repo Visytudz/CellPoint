@@ -239,7 +239,7 @@ class PretrainTrainer:
         log.info(f"Saving ground truth visualization files to: {self.vis_root_dir}")
         for i, sample_dir in enumerate(path_list):
             sample_dir.mkdir(parents=True, exist_ok=True)
-            gt_path = sample_dir / "ground_truth.ply"
+            gt_path = sample_dir / "input.ply"
             gt_points_np = points_list[i].cpu().numpy()
             save_ply(gt_points_np, str(gt_path))
 
@@ -247,10 +247,10 @@ class PretrainTrainer:
 
     def _compute_pqae_loss(self, outputs: dict) -> torch.Tensor:
         # Unpack outputs
-        recon_v1 = outputs["reconstructed_view1"]  # Shape: [B, G, K, C]
-        target_v1 = outputs["target_view1"]  # Shape: [B, G, K, C]
-        recon_v2 = outputs["reconstructed_view2"]  # Shape: [B, G, K, C]
-        target_v2 = outputs["target_view2"]  # Shape: [B, G, K, C]
+        recon_v1 = outputs["recon1"]  # Shape: [B, G, K, C]
+        target_v1 = outputs["group1"]  # Shape: [B, G, K, C]
+        recon_v2 = outputs["recon2"]  # Shape: [B, G, K, C]
+        target_v2 = outputs["group2"]  # Shape: [B, G, K, C]
 
         B, G, K, C = recon_v1.shape
 
@@ -327,15 +327,15 @@ class PretrainTrainer:
                     outputs[key] = value.reshape(B, G * K, C)
 
                 save_tasks = [
-                    ("target_view1", f"gt_view1_epoch_{self.epoch}.ply"),
-                    ("target_view2", f"gt_view2_epoch_{self.epoch}.ply"),
+                    ("group1", f"group1_epoch_{self.epoch}.ply"),
+                    ("group2", f"group2_epoch_{self.epoch}.ply"),
                     (
-                        "reconstructed_view1",
-                        f"recon_view1_epoch_{self.epoch}.ply",
+                        "recon1",
+                        f"recon1_epoch_{self.epoch}.ply",
                     ),
                     (
-                        "reconstructed_view2",
-                        f"recon_view2_epoch_{self.epoch}.ply",
+                        "recon2",
+                        f"recon2_epoch_{self.epoch}.ply",
                     ),
                 ]
 

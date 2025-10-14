@@ -112,22 +112,20 @@ class PointPQAE(nn.Module):
                 "view2": view2,  # (B, M2, 3)
                 "view1_rotated": view1_rotated,  # (B, M1, 3)
                 "view2_rotated": view2_rotated,  # (B, M2, 3)
-                "target_view1": neighborhood1
+                "group1": neighborhood1 + centers1.unsqueeze(2),  # (B, G, K, C_in)
+                "group2": neighborhood2 + centers2.unsqueeze(2),  # (B, G, K, C_in)
+                "recon1": reconstructed_patches_1
                 + centers1.unsqueeze(2),  # (B, G, K, C_in)
-                "target_view2": neighborhood2
-                + centers2.unsqueeze(2),  # (B, G, K, C_in)
-                "reconstructed_view1": reconstructed_patches_1
-                + centers1.unsqueeze(2),  # (B, G, K, C_in)
-                "reconstructed_view2": reconstructed_patches_2
+                "recon2": reconstructed_patches_2
                 + centers2.unsqueeze(2),  # (B, G, K, C_in)
                 "relative_center_1_to_2": relative_center_1_to_2,  # (B, 3)
             }
         else:
             return {
-                "reconstructed_view1": reconstructed_patches_1,
-                "reconstructed_view2": reconstructed_patches_2,
-                "target_view1": neighborhood1,
-                "target_view2": neighborhood2,
+                "recon1": reconstructed_patches_1,
+                "recon2": reconstructed_patches_2,
+                "group1": neighborhood1,
+                "group2": neighborhood2,
             }
 
 

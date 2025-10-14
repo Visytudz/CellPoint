@@ -20,6 +20,7 @@ params:
   # ----------------------------------------------------------------
   view_generator:
     min_crop_rate: 0.6
+    max_crop_rate: 1.0
 
   grouping:
     num_group: 64
