@@ -4,5 +4,6 @@ __pycache__/
 outputs/
 scripts/
 assets/
+notebooks/
 example.ipynb
 run.sh
