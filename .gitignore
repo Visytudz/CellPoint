@@ -1,10 +1,7 @@
 __pycache__/
 .vscode/
 /datasets/
-image/
-scenes/
 outputs/
-wandb/
 scripts/
 assets/
 example.ipynb
