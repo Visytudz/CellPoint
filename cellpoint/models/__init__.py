@@ -1,4 +1,5 @@
-from .foldingnet.model import FoldingNetReconstructor
 from .pqae.model import PointPQAE
+from .pqae.classifier import PQAEClassifier
+from .foldingnet.model import FoldingNetReconstructor
 
-__all__ = ["FoldingNetReconstructor", "PointPQAE"]
+__all__ = ["FoldingNetReconstructor", "PointPQAE", "PQAEClassifier"]

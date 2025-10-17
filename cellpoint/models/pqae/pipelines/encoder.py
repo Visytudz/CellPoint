@@ -108,7 +108,7 @@ class EncoderWrapper(nn.Module):
         encoded_features = self.transformer_encoder(full_tokens, full_pos)
 
         # Separate the final CLS token feature from the patch token features
-        cls_feature = encoded_features[:, :1]
-        patch_features = encoded_features[:, 1:]
+        cls_feature = encoded_features[:, :1]  # (B, 1, C)
+        patch_features = encoded_features[:, 1:]  # (B, G, C)
 
         return cls_feature, patch_features
