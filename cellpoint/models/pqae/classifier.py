@@ -37,16 +37,16 @@ class PQAEClassifier(nn.Module):
     PointPQAE pre-training model and attaches a classification head.
     """
 
-    def __init__(self, config: DictConfig):
+    def __init__(self, params: DictConfig):
         super().__init__()
-        self.config = config
+        self.params = params
 
-        self.grouping = Group(**config.grouping)
-        self.patch_embed = PatchEmbed(**config.patch_embed)
-        self.encoder = EncoderWrapper(**config.encoder)
-        self.classification_head = ClassificationHead(**config.classifier_head)
+        self.grouping = Group(**params.grouping)
+        self.patch_embed = PatchEmbed(**params.patch_embed)
+        self.encoder = EncoderWrapper(**params.encoder)
+        self.classification_head = ClassificationHead(**params.classifier_head)
 
-        self._load_from_pretrain(config.pretrained_ckpt)
+        self._load_from_pretrain(params.pretrained_ckpt)
 
     def _load_from_pretrain(self, ckpt_path: str):
         log.info(f"Loading pre-trained weights from: {ckpt_path}")
