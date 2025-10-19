@@ -1,0 +1,26 @@
+_target_: cellpoint.models.Classifier
+
+config:
+  name: "classifier"
+  grouping:
+    num_group: 64
+    group_size: 32
+
+  patch_embed:
+    in_channels: 3
+    embed_dim: 384
+
+  encoder:
+    embed_dim: 384
+    depth: 12
+    num_heads: 6
+    mlp_ratio: 4.0
+    qkv_bias: True
+    proj_drop: 0.0
+    attn_drop: 0.0
+    drop_path_rate: 0.1
+
+  classifier_head:
+    embed_dim: 384
+    hidden_dim: 256
+    num_classes: 40

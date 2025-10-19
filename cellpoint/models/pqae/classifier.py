@@ -44,9 +44,7 @@ class PQAEClassifier(nn.Module):
         self.grouping = Group(**config.grouping)
         self.patch_embed = PatchEmbed(**config.patch_embed)
         self.encoder = EncoderWrapper(**config.encoder)
-        self.classification_head = ClassificationHead(
-            embed_dim=config.encoder.embed_dim, num_classes=config.num_classes
-        )
+        self.classification_head = ClassificationHead(**config.classifier_head)
 
         self._load_from_pretrain(config.pretrained_ckpt)
 

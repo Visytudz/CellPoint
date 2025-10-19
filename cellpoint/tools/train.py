@@ -1,3 +1,4 @@
+import hydra
 import wandb
 import logging
 from tqdm import tqdm
@@ -12,7 +13,6 @@ from timm.scheduler import CosineLRScheduler
 from cellpoint.utils.io import save_ply
 from cellpoint.loss import ChamferLoss
 from cellpoint.datasets import HDF5Dataset, ShapeNetDataset
-from cellpoint.models import FoldingNetReconstructor, PointPQAE
 from cellpoint.utils.transforms import (
     Compose,
     PointcloudRotate,
@@ -174,14 +174,9 @@ class PretrainTrainer:
 
     def _build_model(self) -> torch.nn.Module:
         """Builds the model from the configuration."""
-        log.info(f"Building model: {self.cfg.model.name}")
-        model_config = self.cfg.model
-        if model_config.name == "foldingnet":
-            return FoldingNetReconstructor(**model_config.params)
-        elif model_config.name == "pqae":
-            return PointPQAE(model_config.params)
-        else:
-            raise ValueError(f"Unknown model name: {model_config.name}")
+        log.info(f"Building model: {self.cfg.model._target_}")
+        model = hydra.utils.instantiate(self.cfg.model)
+        return model
 
     def _load_checkpoint(self):
         """Loads a checkpoint to resume training."""
