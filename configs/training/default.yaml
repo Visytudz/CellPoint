@@ -10,10 +10,6 @@ min_lr: 1e-6
 num_workers: 4
 save_interval: 10
 
-# Visualization settings
-visualize_every_n_epochs: 25
-visualization_indices: [65,888]
-
 # Checkpoint settings
 checkpoint_path: null
 resume_training: false

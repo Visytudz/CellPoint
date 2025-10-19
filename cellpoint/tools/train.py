@@ -13,7 +13,6 @@ from timm.scheduler import CosineLRScheduler
 from cellpoint.loss import ChamferLoss
 from cellpoint.utils.io import save_ply
 from cellpoint.utils.misc import get_pqae_loss
-from cellpoint.datasets import HDF5Dataset, ShapeNetDataset
 from cellpoint.utils.transforms import (
     Compose,
     PointcloudRotate,
@@ -43,7 +42,7 @@ class PretrainTrainer:
 
         # Instantiate components
         self.train_transform = self._build_transforms()
-        self.train_loader = self._create_dataloader(cfg.dataset.splits)
+        self.train_loader = self._build_dataloader(cfg.dataset.splits)
         self.model = self._build_model().to(self.device)
         self.loss_fn = ChamferLoss()
         self.optimizer = optim.AdamW(
@@ -65,7 +64,6 @@ class PretrainTrainer:
         self.best_train_loss = float("inf")
         self._load_checkpoint()
         self.vis_root_dir = self.output_dir / "visualizations"
-        self.visualization_data = self._prepare_visualization_batch()
 
     def _setup_random_seed(self):
         """Sets random seeds for reproducibility."""
@@ -102,7 +100,7 @@ class PretrainTrainer:
 
         return Compose(transforms) if transforms else None
 
-    def _create_dataloader(self, splits: list[str]) -> DataLoader:
+    def _build_dataloader(self, splits: list[str]) -> DataLoader:
         """Creates a DataLoader for the specified data split."""
         log.info(f"Creating {splits} dataloader...")
 
@@ -160,42 +158,20 @@ class PretrainTrainer:
         else:
             log.info("Loaded model weights only.")
 
-    def _prepare_visualization_batch(self):
-        """Prepares a fixed batch for visualization, creates directories, and saves the ground truth point clouds."""
-        # valdate visualization indices
-        indices = self.cfg.training.get("visualization_indices")
-        if not indices:
-            log.info(
-                "No visualization indices specified. Visualization will be disabled."
-            )
-            return None
-        log.info(f"Preparing visualization samples for indices: {indices}")
-        train_dataset = self.train_loader.dataset
-        valid_indices = [i for i in indices if i < len(train_dataset)]
-        if len(valid_indices) != len(indices):
-            log.warning(
-                f"Some visualization indices were out of bounds. Using valid indices: {valid_indices}"
-            )
-        if not valid_indices:
-            return None
-
-        # Fetch both points and their IDs
-        points_list = [train_dataset[i]["points"] for i in valid_indices]
-        batch_tensor = torch.stack(points_list).to(self.device)
-        path_list = [
-            self.vis_root_dir / f"{i}_{train_dataset[i].get('id', f'index_{i}')}"
-            for i in valid_indices
-        ]
-
-        # Create directories and save ground truths
-        log.info(f"Saving ground truth visualization files to: {self.vis_root_dir}")
-        for i, sample_dir in enumerate(path_list):
-            sample_dir.mkdir(parents=True, exist_ok=True)
-            gt_path = sample_dir / "input.ply"
-            gt_points_np = points_list[i].cpu().numpy()
-            save_ply(gt_points_np, str(gt_path))
-
-        return {"points": batch_tensor, "paths": path_list}
+    def _save_checkpoint(self, file_name: str):
+        """Saves the model state to a file."""
+        checkpoint_path = self.output_dir / file_name
+        torch.save(
+            {
+                "epoch": self.epoch,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "scheduler_state_dict": self.scheduler.state_dict(),
+                "train_loss": self.best_train_loss,
+            },
+            checkpoint_path,
+        )
+        log.info(f"Saved checkpoint to {checkpoint_path} at epoch {self.epoch}")
 
     def _train_epoch(self) -> float:
         """Runs a single training epoch."""
@@ -227,78 +203,10 @@ class PretrainTrainer:
 
         return total_loss / len(self.train_loader)
 
-    def _visualize_reconstructions(self):
-        """Runs model inference on the visualization batch and saves the
-        reconstructed point clouds locally.
-
-        For PQAE, this function saves both reconstructed views and their
-        corresponding target views (ground truth).
-        """
-        if self.visualization_data is None:
-            return
-
-        log.info(f"--- Visualizing reconstructions @ Epoch {self.epoch} ---")
-        self.model.eval()
-
-        points_batch = self.visualization_data["points"]
-        paths_batch = self.visualization_data["paths"]
-
-        with torch.no_grad():
-            if self.cfg.model.config.name == "foldingnet":
-                reconstructed_points = self.model(points_batch)
-                for i, sample_dir in enumerate(paths_batch):
-                    recon_path = sample_dir / f"recon_epoch_{self.epoch}.ply"
-                    recon_pc_np = reconstructed_points[i].cpu().numpy()
-                    save_ply(recon_pc_np, str(recon_path))
-
-            elif self.cfg.model.config.name == "pqae":
-                outputs = self.model(points_batch, viz=True)
-                B, G, K, C = outputs["reconstructed_view1"].shape
-                for key, value in outputs.items():
-                    outputs[key] = value.reshape(B, G * K, C)
-
-                save_tasks = [
-                    ("group1", f"group1_epoch_{self.epoch}.ply"),
-                    ("group2", f"group2_epoch_{self.epoch}.ply"),
-                    (
-                        "recon1",
-                        f"recon1_epoch_{self.epoch}.ply",
-                    ),
-                    (
-                        "recon2",
-                        f"recon2_epoch_{self.epoch}.ply",
-                    ),
-                ]
-
-                # Iterate through each sample in the batch
-                for i, sample_dir in enumerate(paths_batch):
-                    for key, filename in save_tasks:
-                        filepath = sample_dir / filename
-                        point_cloud_np = outputs[key][i].cpu().numpy()
-                        save_ply(point_cloud_np, str(filepath))
-
-    def _save_checkpoint(self, file_name: str):
-        """Saves the model state to a file."""
-        checkpoint_path = self.output_dir / file_name
-        torch.save(
-            {
-                "epoch": self.epoch,
-                "model_state_dict": self.model.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "scheduler_state_dict": self.scheduler.state_dict(),
-                "train_loss": self.best_train_loss,
-            },
-            checkpoint_path,
-        )
-        log.info(f"Saved checkpoint to {checkpoint_path} at epoch {self.epoch}")
-
     def fit(self):
         log.info(f"Using device: {self.device}")
         log.info(f"Train dataset size: {len(self.train_loader.dataset)}")
         log.info(f"Starting pre-training from epoch {self.epoch + 1}.")
-
-        if self.cfg.wandb.log:
-            wandb.watch(self.model, log="gradients", log_freq=self.cfg.wandb.log_freq)
 
         for epoch in range(self.epoch + 1, self.cfg.training.epochs + 1):
             self.epoch = epoch
@@ -316,14 +224,6 @@ class PretrainTrainer:
                         "learning_rate": self.optimizer.param_groups[0]["lr"],
                     }
                 )
-
-            # Visualization step
-            should_visualize = (self.cfg.training.visualize_every_n_epochs > 0) and (
-                (self.epoch % self.cfg.training.visualize_every_n_epochs == 0)
-                or (self.epoch == self.cfg.training.epochs)
-            )
-            if should_visualize:
-                self._visualize_reconstructions()
 
             # Other housekeeping
             self.scheduler.step(self.epoch)
