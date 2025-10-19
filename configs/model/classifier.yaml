@@ -1,7 +1,6 @@
 _target_: cellpoint.models.Classifier
 
-config:
-  name: "classifier"
+params:
   grouping:
     num_group: 64
     group_size: 32

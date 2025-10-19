@@ -11,8 +11,6 @@ from torch.utils.data import DataLoader, ConcatDataset
 from timm.scheduler import CosineLRScheduler
 
 from cellpoint.loss import ChamferLoss
-from cellpoint.utils.io import save_ply
-from cellpoint.utils.misc import get_pqae_loss
 from cellpoint.utils.transforms import (
     Compose,
     PointcloudRotate,
@@ -63,7 +61,6 @@ class PretrainTrainer:
         self.epoch = 0
         self.best_train_loss = float("inf")
         self._load_checkpoint()
-        self.vis_root_dir = self.output_dir / "visualizations"
 
     def _setup_random_seed(self):
         """Sets random seeds for reproducibility."""
@@ -185,15 +182,11 @@ class PretrainTrainer:
             points = batch["points"].to(self.device)
             self.optimizer.zero_grad()
 
-            if self.cfg.model.config.name == "foldingnet":
-                reconstructed_points = self.model(points)
-                loss = self.loss_fn(points, reconstructed_points)
-            elif self.cfg.model.config.name == "pqae":
-                outputs = self.model(points)
-                loss = get_pqae_loss(outputs, self.loss_fn)
-            else:
-                raise ValueError(f"Unknown model name: {self.cfg.model.name}")
+            # forward
+            outputs = self.model(points)
+            loss = self.model.get_loss(self.loss_fn, outputs, points)
 
+            # backward
             loss.backward()
             self.optimizer.step()
 

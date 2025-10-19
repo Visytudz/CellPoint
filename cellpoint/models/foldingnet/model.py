@@ -354,6 +354,14 @@ class FoldingNetReconstructor(nn.Module):
         reconstruction = self.decoder(codeword)  # (B, M, 3)
         return reconstruction
 
+    @staticmethod
+    def get_loss(
+        loss_fn: callable, reconstructed: torch.Tensor, target: torch.Tensor
+    ) -> torch.Tensor:
+        """Computes the reconstruction loss between the reconstructed and target point clouds."""
+        loss = loss_fn(target, reconstructed)
+        return loss
+
 
 if __name__ == "__main__":
     model = FoldingNetReconstructor(encoder_type="foldingnet", grid_type="sphere")

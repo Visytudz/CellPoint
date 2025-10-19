@@ -20,17 +20,17 @@ class PointPQAE(nn.Module):
     5. Decoding the queried features to reconstruct the target views.
     """
 
-    def __init__(self, config):
+    def __init__(self, params):
         """Initializes the Point-PQAE model and all its sub-modules."""
         super().__init__()
-        self.config = config
+        self.params = params
 
-        self.view_generator = PointViewGenerator(**config.view_generator)
-        self.grouping = Group(**config.grouping)
-        self.patch_embed = PatchEmbed(**config.patch_embed)
-        self.encoder = EncoderWrapper(**config.encoder)
-        self.positional_query = PositionalQuery(**config.positional_query)
-        self.reconstruction_head = ReconstructionHead(**config.reconstruction_head)
+        self.view_generator = PointViewGenerator(**params.view_generator)
+        self.grouping = Group(**params.grouping)
+        self.patch_embed = PatchEmbed(**params.patch_embed)
+        self.encoder = EncoderWrapper(**params.encoder)
+        self.positional_query = PositionalQuery(**params.positional_query)
+        self.reconstruction_head = ReconstructionHead(**params.reconstruction_head)
 
         # Initialize weights
         self.apply(self._init_weights)
@@ -127,6 +127,29 @@ class PointPQAE(nn.Module):
                 "group1": neighborhood1,
                 "group2": neighborhood2,
             }
+
+    @staticmethod
+    def get_loss(loss_fn: callable, outputs: dict, *args) -> torch.Tensor:
+        """Calculates the total loss from the model outputs."""
+        # Unpack outputs
+        recon_v1 = outputs["recon1"]  # Shape: [B, G, K, C]
+        target_v1 = outputs["group1"]  # Shape: [B, G, K, C]
+        recon_v2 = outputs["recon2"]  # Shape: [B, G, K, C]
+        target_v2 = outputs["group2"]  # Shape: [B, G, K, C]
+
+        B, G, K, C = recon_v1.shape
+
+        # Reshape for per-patch loss calculation by merging Batch and Group dimensions
+        recon_v1_flat = recon_v1.reshape(B * G, K, C)
+        target_v1_flat = target_v1.reshape(B * G, K, C)
+        recon_v2_flat = recon_v2.reshape(B * G, K, C)
+        target_v2_flat = target_v2.reshape(B * G, K, C)
+
+        # Calculate loss for each view
+        loss1 = loss_fn(target_v1_flat, recon_v1_flat)
+        loss2 = loss_fn(target_v2_flat, recon_v2_flat)
+
+        return loss1 + loss2
 
 
 if __name__ == "__main__":

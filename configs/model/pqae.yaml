@@ -1,7 +1,6 @@
 _target_: cellpoint.models.PointPQAE
 
-config:
-  name: pqae
+params:
   shared:
     # ----------------------------------------------------------------
     # Shared variables for reuse across different modules
