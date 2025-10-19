@@ -6,32 +6,31 @@ selected:
 
 available:
   shapenet55-34:
-    name: "shapenet55-34"
-    type: "shapenet"
+    _target_: "cellpoint.datasets.ShapeNetDataset"
     pc_path: "/home/verve/Project/research/CellPoint/datasets/shapenet55-34/pcl"
     split_path: "/home/verve/Project/research/CellPoint/datasets/shapenet55-34/splits"
     num_points: 2048
   intestine:
+    _target_: "cellpoint.datasets.HDF5Dataset"
     name: "intestine"
-    type: "hdf5"
     root: "/home/verve/Project/research/CellPoint/datasets"
     num_points: 2048
     normalize: true
   redblood:
+    _target_: "cellpoint.datasets.HDF5Dataset"
     name: "redblood"
-    type: "hdf5"
     root: "/home/verve/Project/research/CellPoint/datasets"
     num_points: 2048
     normalize: true
   intrA:
+    _target_: "cellpoint.datasets.HDF5Dataset"
     name: "intrA"
-    type: "hdf5"
     root: "/home/verve/Project/research/CellPoint/datasets"
     num_points: 2048
     normalize: true
   shapenetcorev2:
+    _target_: "cellpoint.datasets.ShapeNetDataset"
     name: "shapenetcorev2"
-    type: "hdf5"
     root: "/home/verve/Project/research/CellPoint/datasets"
     num_points: 2048
     normalize: true

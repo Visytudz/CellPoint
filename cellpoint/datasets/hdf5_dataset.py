@@ -16,7 +16,7 @@ class HDF5Dataset(data.Dataset):
     def __init__(
         self,
         root: str,
-        dataset_name: str,
+        name: str,
         class_choice: Optional[str] = None,
         num_points: int = 2048,
         splits: list[str] = ["train"],
@@ -30,7 +30,7 @@ class HDF5Dataset(data.Dataset):
         ----------
         root : str
             The root directory of the dataset.
-        dataset_name : str
+        name : str
             The name of the dataset.
         class_choice : Optional[str], optional
             The name of the class to load.
@@ -43,8 +43,8 @@ class HDF5Dataset(data.Dataset):
         transform : callable, optional
             A function/transform that takes in a point cloud and returns a transformed version.
         """
-        self.root: str = os.path.join(root, dataset_name)
-        self.dataset_name: str = dataset_name
+        self.root: str = os.path.join(root, name)
+        self.dataset_name: str = name
         self.class_choice: Optional[str] = class_choice
         self.num_points: int = num_points
         self.split: list[str] = splits
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     split = ["train", "val", "test"]
     dataset = HDF5Dataset(
         root=root,
-        dataset_name=dataset_name,
+        name=dataset_name,
         num_points=20480,
         splits=split,
         # class_choice="cancerous"

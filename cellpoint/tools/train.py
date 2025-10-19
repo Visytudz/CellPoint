@@ -103,62 +103,18 @@ class PretrainTrainer:
         return Compose(transforms) if transforms else None
 
     def _create_dataloader(self, splits: list[str]) -> DataLoader:
-        """Creates a DataLoader for the specified data split.
-
-        This method supports loading and concatenating multiple datasets of
-        different types (e.g., HDF5, ShapeNet) as defined in the config.
-
-        Parameters
-        ----------
-        splits : list[str]
-            The dataset splits to load (e.g., ['train']).
-
-        Returns
-        -------
-        DataLoader
-            The configured DataLoader for the specified splits.
-        """
+        """Creates a DataLoader for the specified data split."""
         log.info(f"Creating {splits} dataloader...")
+
         datasets_to_concat = []
-
         for dataset_key in self.cfg.dataset.selected:
-            if dataset_key not in self.cfg.dataset.available:
-                log.warning(
-                    f"Dataset key '{dataset_key}' from 'selected' list not found in 'available' datasets. Skipping."
-                )
-                continue
-
             ds_config = self.cfg.dataset.available[dataset_key]
-            log.info(f"Loading dataset: '{dataset_key}' of type '{ds_config.type}'")
+            log.info(f"Loading dataset: '{dataset_key}' by {ds_config._target_}")
 
-            dataset = None
-            if ds_config.type == "hdf5":
-                dataset = HDF5Dataset(
-                    root=ds_config.root,
-                    dataset_name=ds_config.name,
-                    splits=splits,
-                    num_points=ds_config.num_points,
-                    normalize=ds_config.get("normalize"),
-                    transform=self.train_transform,
-                )
-            elif ds_config.type == "shapenet":
-                dataset = ShapeNetDataset(
-                    pc_path=ds_config.pc_path,
-                    split_path=ds_config.split_path,
-                    splits=splits,
-                    num_points=ds_config.num_points,
-                    transform=self.train_transform,
-                )
-            else:
-                log.warning(
-                    f"Unknown dataset type '{ds_config.type}' for key '{dataset_key}'. Skipping."
-                )
-
-            if dataset:
-                datasets_to_concat.append(dataset)
-
-        if not datasets_to_concat:
-            raise ValueError("No valid datasets were loaded. Check your configuration.")
+            dataset = hydra.utils.instantiate(
+                ds_config, splits=splits, transform=self.train_transform
+            )
+            datasets_to_concat.append(dataset)
 
         final_dataset = (
             ConcatDataset(datasets_to_concat)
