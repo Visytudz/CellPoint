@@ -41,40 +41,6 @@ def batch_normalize_to_unit_sphere_torch(
     return normalized_pointcloud
 
 
-def translate_pointcloud(pointcloud: NDArray[np.float32]) -> NDArray[np.float32]:
-    """Applies random scaling and translation to a point cloud."""
-    xyz1 = np.random.uniform(low=2.0 / 3.0, high=3.0 / 2.0, size=[3])
-    xyz2 = np.random.uniform(low=-0.2, high=0.2, size=[3])
-    translated_pointcloud = ((pointcloud * xyz1) + xyz2).astype("float32")
-    return translated_pointcloud
-
-
-def jitter_pointcloud(
-    pointcloud: NDArray[np.float32], sigma: float = 0.01, clip: float = 0.02
-) -> NDArray[np.float32]:
-    """Applies random jitter to a point cloud."""
-    N, C = pointcloud.shape
-    pointcloud += np.clip(sigma * np.random.randn(N, C), -1 * clip, clip)
-    return pointcloud
-
-
-def rotate_pointcloud(pointcloud: NDArray[np.float32]) -> NDArray[np.float32]:
-    """Applies a random 3D rotation to a point cloud."""
-    # Generate a random rotation axis (a unit vector)
-    axis = np.random.rand(3) - 0.5
-    axis /= np.linalg.norm(axis)
-    # Generate a random rotation angle
-    theta = np.pi * 2 * np.random.rand()
-    # Rodrigues' rotation formula
-    K = np.array(
-        [[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]]
-    )
-    I = np.identity(3)
-    rotation_matrix = I + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
-
-    return pointcloud @ rotation_matrix.T
-
-
 def batch_rotate_torch(pc: torch.Tensor) -> torch.Tensor:
     """Applies a random rotation to a batch of point clouds around the Z-axis."""
     # Generate random angles for each item in the batch

@@ -10,8 +10,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, ConcatDataset
 from timm.scheduler import CosineLRScheduler
 
-from cellpoint.utils.io import save_ply
 from cellpoint.loss import ChamferLoss
+from cellpoint.utils.io import save_ply
+from cellpoint.utils.misc import get_pqae_loss
 from cellpoint.datasets import HDF5Dataset, ShapeNetDataset
 from cellpoint.utils.transforms import (
     Compose,
@@ -240,27 +241,6 @@ class PretrainTrainer:
 
         return {"points": batch_tensor, "paths": path_list}
 
-    def _compute_pqae_loss(self, outputs: dict) -> torch.Tensor:
-        # Unpack outputs
-        recon_v1 = outputs["recon1"]  # Shape: [B, G, K, C]
-        target_v1 = outputs["group1"]  # Shape: [B, G, K, C]
-        recon_v2 = outputs["recon2"]  # Shape: [B, G, K, C]
-        target_v2 = outputs["group2"]  # Shape: [B, G, K, C]
-
-        B, G, K, C = recon_v1.shape
-
-        # Reshape for per-patch loss calculation by merging Batch and Group dimensions
-        recon_v1_flat = recon_v1.reshape(B * G, K, C)
-        target_v1_flat = target_v1.reshape(B * G, K, C)
-        recon_v2_flat = recon_v2.reshape(B * G, K, C)
-        target_v2_flat = target_v2.reshape(B * G, K, C)
-
-        # Calculate loss for each view
-        loss1 = self.loss_fn(recon_v1_flat, target_v1_flat)
-        loss2 = self.loss_fn(recon_v2_flat, target_v2_flat)
-
-        return loss1 + loss2
-
     def _train_epoch(self) -> float:
         """Runs a single training epoch."""
         self.model.train()
@@ -273,12 +253,12 @@ class PretrainTrainer:
             points = batch["points"].to(self.device)
             self.optimizer.zero_grad()
 
-            if self.cfg.model.name == "foldingnet":
+            if self.cfg.model.config.name == "foldingnet":
                 reconstructed_points = self.model(points)
                 loss = self.loss_fn(points, reconstructed_points)
-            elif self.cfg.model.name == "pqae":
+            elif self.cfg.model.config.name == "pqae":
                 outputs = self.model(points)
-                loss = self._compute_pqae_loss(outputs)
+                loss = get_pqae_loss(outputs, self.loss_fn)
             else:
                 raise ValueError(f"Unknown model name: {self.cfg.model.name}")
 
@@ -308,14 +288,14 @@ class PretrainTrainer:
         paths_batch = self.visualization_data["paths"]
 
         with torch.no_grad():
-            if self.cfg.model.name == "foldingnet":
+            if self.cfg.model.config.name == "foldingnet":
                 reconstructed_points = self.model(points_batch)
                 for i, sample_dir in enumerate(paths_batch):
                     recon_path = sample_dir / f"recon_epoch_{self.epoch}.ply"
                     recon_pc_np = reconstructed_points[i].cpu().numpy()
                     save_ply(recon_pc_np, str(recon_path))
 
-            elif self.cfg.model.name == "pqae":
+            elif self.cfg.model.config.name == "pqae":
                 outputs = self.model(points_batch, viz=True)
                 B, G, K, C = outputs["reconstructed_view1"].shape
                 for key, value in outputs.items():

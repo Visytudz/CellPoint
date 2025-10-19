@@ -158,3 +158,40 @@ def get_pos_embed(embed_dim: int, pos_vector: torch.Tensor) -> torch.Tensor:
     final_embedding = embedding.view(B, G, -1)
 
     return final_embedding
+
+
+def get_pqae_loss(outputs: dict, loss_fn: callable) -> torch.Tensor:
+    """
+    Computes the combined loss for a PointPQAE model.
+
+    Parameters
+    ----------
+    outputs : dict
+        The model outputs containing reconstructions and targets.
+    loss_fn : callable
+        The loss function to use for computing the loss.
+
+    Returns
+    -------
+    torch.Tensor
+        The computed loss value.
+    """
+    # Unpack outputs
+    recon_v1 = outputs["recon1"]  # Shape: [B, G, K, C]
+    target_v1 = outputs["group1"]  # Shape: [B, G, K, C]
+    recon_v2 = outputs["recon2"]  # Shape: [B, G, K, C]
+    target_v2 = outputs["group2"]  # Shape: [B, G, K, C]
+
+    B, G, K, C = recon_v1.shape
+
+    # Reshape for per-patch loss calculation by merging Batch and Group dimensions
+    recon_v1_flat = recon_v1.reshape(B * G, K, C)
+    target_v1_flat = target_v1.reshape(B * G, K, C)
+    recon_v2_flat = recon_v2.reshape(B * G, K, C)
+    target_v2_flat = target_v2.reshape(B * G, K, C)
+
+    # Calculate loss for each view
+    loss1 = loss_fn(recon_v1_flat, target_v1_flat)
+    loss2 = loss_fn(recon_v2_flat, target_v2_flat)
+
+    return loss1 + loss2
