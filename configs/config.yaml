@@ -1,7 +1,7 @@
 defaults:
   - dataset: default
   - model: foldingnet
-  - training: default
+  - training: pretrain
   - hydra: default
   - wandb: default
   - _self_

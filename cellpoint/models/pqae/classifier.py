@@ -48,8 +48,14 @@ class PQAEClassifier(nn.Module):
 
         self._load_from_pretrain(params.pretrained_ckpt)
 
-    def _load_from_pretrain(self, ckpt_path: str):
-        log.info(f"Loading pre-trained weights from: {ckpt_path}")
+    def _load_from_pretrain(self, ckpt_path: str = None):
+        """Loads pre-trained weights into the encoder from a checkpoint."""
+        if ckpt_path is None:
+            log.warning(
+                "No pre-trained encoder checkpoint path provided. Training from scratch."
+            )
+            return
+        log.info(f"Loading encoder pre-trained weights from: {ckpt_path}")
 
         # read pre-trained checkpoint
         checkpoint = torch.load(ckpt_path, map_location="cpu")
@@ -75,6 +81,17 @@ class PQAEClassifier(nn.Module):
             )
 
         log.info("Successfully loaded pre-trained encoder weights.")
+
+    def freeze_encoder(self):
+        """Freezes the encoder parameters."""
+        for param in self.grouping.parameters():
+            param.requires_grad = False
+        for param in self.patch_embed.parameters():
+            param.requires_grad = False
+        for param in self.encoder.parameters():
+            param.requires_grad = False
+        for param in self.classification_head.parameters():
+            param.requires_grad = True
 
     def forward(self, pts: torch.Tensor) -> torch.Tensor:
         """

@@ -1,4 +1,4 @@
-_target_: cellpoint.models.Classifier
+_target_: cellpoint.models.PQAEClassifier
 
 params:
   grouping:

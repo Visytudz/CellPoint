@@ -1,7 +1,6 @@
 splits: ["train", "test"]
 
 selected:
-  - intestine
   - shapenetcorev2
 
 available:
@@ -29,7 +28,7 @@ available:
     num_points: 2048
     normalize: true
   shapenetcorev2:
-    _target_: "cellpoint.datasets.ShapeNetDataset"
+    _target_: "cellpoint.datasets.HDF5Dataset"
     name: "shapenetcorev2"
     root: "/home/verve/Project/research/CellPoint/datasets"
     num_points: 2048

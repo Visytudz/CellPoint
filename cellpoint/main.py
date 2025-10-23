@@ -4,7 +4,7 @@ import wandb
 import logging
 from omegaconf import DictConfig, OmegaConf
 
-from cellpoint.tools import PretrainTrainer
+from cellpoint.tools import PretrainTrainer, FinetuneTrainer
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +24,9 @@ def main(cfg: DictConfig) -> None:
     output_dir = os.getcwd()
     log.info(f"Working directory for this run: {output_dir}")
 
-    trainer = PretrainTrainer(cfg, output_dir=output_dir)
+    # trainer = PretrainTrainer(cfg, output_dir=output_dir)
+    # trainer.fit()
+    trainer = FinetuneTrainer(cfg, output_dir=output_dir)
     trainer.fit()
 
     if cfg.wandb.log:
