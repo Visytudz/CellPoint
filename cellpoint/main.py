@@ -24,9 +24,11 @@ def main(cfg: DictConfig) -> None:
     output_dir = os.getcwd()
     log.info(f"Working directory for this run: {output_dir}")
 
-    # trainer = PretrainTrainer(cfg, output_dir=output_dir)
-    # trainer.fit()
-    trainer = FinetuneTrainer(cfg, output_dir=output_dir)
+    task = hydra.core.hydra_config.HydraConfig.get().runtime.choices["training"]
+    if task == "pretrain":
+        trainer = PretrainTrainer(cfg, output_dir=output_dir)
+    elif task == "finetune":
+        trainer = FinetuneTrainer(cfg, output_dir=output_dir)
     trainer.fit()
 
     if cfg.wandb.log:

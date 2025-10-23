@@ -149,7 +149,7 @@ class FinetuneTrainer:
         else:
             log.info("Loaded model weights only.")
 
-    def _save_checkpoint(self, file_name: str):
+    def _save_checkpoint(self, file_name: str, verbose: bool = True):
         """Saves the model state to a file."""
         checkpoint_path = self.output_dir / file_name
         torch.save(
@@ -162,7 +162,8 @@ class FinetuneTrainer:
             },
             checkpoint_path,
         )
-        log.info(f"Saved checkpoint to {checkpoint_path} at epoch {self.epoch}")
+        if verbose:
+            log.info(f"Saved checkpoint to {checkpoint_path} at epoch {self.epoch}")
 
     def _train_epoch(self) -> tuple[float, float]:
         """Runs a single training epoch."""
@@ -222,7 +223,7 @@ class FinetuneTrainer:
 
             # Train step
             train_loss, train_accuracy = self._train_epoch()
-            self._save_checkpoint("last_model.pth")
+            self._save_checkpoint("last_model.pth", verbose=False)
             log.info(
                 f"Epoch {self.epoch}/{self.cfg.training.epochs} | "
                 f"Train Loss: {train_loss:.4f} | Train Acc: {train_accuracy:.4f} | "
@@ -242,10 +243,10 @@ class FinetuneTrainer:
             if epoch % val_interval == 0 or epoch == self.cfg.training.epochs:
                 log.info(f"--- Performing validation at epoch {self.epoch} ---")
                 val_accuracy = self._validate_epoch()
+                log.info(f"Validation Accuracy: {val_accuracy:.4f}")
                 if val_accuracy > self.best_val_accuracy:
                     self.best_val_accuracy = val_accuracy
                     self._save_checkpoint("best_model.pth")
-                log.info(f"Validation Accuracy: {val_accuracy:.4f}")
                 if self.cfg.wandb.log:
                     wandb.log(
                         {
