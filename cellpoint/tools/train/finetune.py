@@ -60,10 +60,11 @@ class FinetuneTrainer:
 
     def _setup_random_seed(self):
         """Sets random seeds for reproducibility."""
-        log.info(f"Setting random seed to {self.cfg.seed}")
-        torch.manual_seed(self.cfg.seed)
+        seed = self.cfg.training.seed
+        log.info(f"Setting random seed to {seed}")
+        torch.manual_seed(seed)
         if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(self.cfg.seed)
+            torch.cuda.manual_seed_all(seed)
 
     def _build_dataloader(self, splits: list[str]) -> DataLoader:
         """Creates a DataLoader for the specified data split."""

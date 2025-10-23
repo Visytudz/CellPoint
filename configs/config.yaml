@@ -1,6 +1,6 @@
 defaults:
   - dataset: default
-  - model: foldingnet
+  - model: pqae
   - training: pretrain
   - hydra: default
   - wandb: default
@@ -8,5 +8,3 @@ defaults:
 
 # global variables
 project_name: "3DCellPoint"
-seed: 42
-

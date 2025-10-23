@@ -7,8 +7,11 @@ weight_decay: 0.05
 min_lr: 1e-6
 
 # other settings
+seed: 42
 num_workers: 4
 val_interval: 10
 freeze_encoder: true
+
+# Checkpoint settings
 checkpoint_path: null
 resume_training: false
