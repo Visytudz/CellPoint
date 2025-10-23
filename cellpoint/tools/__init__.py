@@ -1,3 +1,3 @@
-from .train import PretrainTrainer
+from .pretrain import PretrainTrainer
 
 __all__ = ["PretrainTrainer"]
