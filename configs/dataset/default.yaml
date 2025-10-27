@@ -18,7 +18,7 @@ available:
     normalize: true
   redblood:
     _target_: "cellpoint.datasets.HDF5Dataset"
-    name: "redblood"
+    name: "redblood/class8"
     root: "/home/verve/Project/research/CellPoint/datasets"
     num_points: ${...num_points}
     normalize: true
