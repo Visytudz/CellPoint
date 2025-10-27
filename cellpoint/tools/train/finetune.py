@@ -39,19 +39,7 @@ class FinetuneTrainer:
         self.model = self._build_model().to(self.device)
         self.metrics = self._build_metrics()
         self.loss_fn = nn.CrossEntropyLoss()
-        self.optimizer = optim.AdamW(
-            self.model.classification_head.parameters(),
-            lr=self.cfg.training.lr,
-            weight_decay=self.cfg.training.weight_decay,
-        )
-        self.scheduler = CosineLRScheduler(
-            self.optimizer,
-            t_initial=self.cfg.training.epochs,
-            lr_min=self.cfg.training.min_lr,
-            warmup_t=self.cfg.training.warmup_epochs,
-            warmup_lr_init=1e-6,
-            t_in_epochs=True,
-        )
+        self.optimizer, self.scheduler = self._build_optimizer_and_scheduler()
 
         # State attributes
         self.epoch = 0
@@ -95,20 +83,36 @@ class FinetuneTrainer:
         """Builds the classifier model and loads pre-trained encoder weights."""
         log.info(f"Building model: {self.cfg.model._target_}")
         model = hydra.utils.instantiate(self.cfg.model)
-        if self.cfg.training.get("freeze_encoder", True):
-            model.freeze_encoder()
-
-        # Log model parameter counts
-        total_params = sum(p.numel() for p in model.parameters())
-        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        log.info(f"Total parameters: {total_params:,}")
-        log.info(f"Trainable parameters: {trainable_params:,}")
-        if total_params > trainable_params:
-            log.info(
-                f"Note: {total_params - trainable_params:,} parameters are frozen."
-            )
-
         return model
+
+    def _build_optimizer_and_scheduler(self):
+        """Builds the optimizer and learning rate scheduler for training."""
+        log.info("Building optimizer and learning rate scheduler.")
+        param_groups = [
+            {
+                "params": self.model.classification_head.parameters(),
+                "lr": self.cfg.training.lr,
+                "name": "classifier",
+            },
+            {
+                "params": self.model.encoder_parameters,
+                "lr": self.cfg.training.encoder_lr,
+                "name": "encoder",
+            },
+        ]
+        optimizer = optim.AdamW(
+            param_groups,
+            weight_decay=self.cfg.training.weight_decay,
+        )
+        scheduler = CosineLRScheduler(
+            optimizer,
+            t_initial=self.cfg.training.epochs,
+            lr_min=self.cfg.training.min_lr,
+            warmup_t=self.cfg.training.warmup_epochs,
+            warmup_lr_init=1e-6,
+            t_in_epochs=True,
+        )
+        return optimizer, scheduler
 
     def _build_metrics(self):
         """Builds TorchMetrics trackers."""
@@ -218,8 +222,23 @@ class FinetuneTrainer:
         log.info(f"Validation dataset size: {len(self.val_loader.dataset)}")
         log.info(f"Starting fine-tuning from epoch {self.epoch + 1}.")
 
+        # Handle encoder freezing
+        unfreeze_epoch = self.cfg.training.get("unfreeze_encoder_epoch")
+        is_encoder_frozen = unfreeze_epoch > self.epoch
+        if is_encoder_frozen:
+            self.model.toggle_encoder(freeze=True)
+            log.info("Encoder is initially frozen.")
+        self.model.log_parameters()
+
+        # Training loop
         for epoch in range(self.epoch + 1, self.cfg.training.epochs + 1):
             self.epoch = epoch
+
+            # Unfreeze step
+            if is_encoder_frozen and self.epoch == unfreeze_epoch:
+                log.info("Unfreezing encoder parameters.")
+                self.model.toggle_encoder(freeze=False)
+                is_encoder_frozen = False
 
             # Train step
             train_loss, train_accuracy = self._train_epoch()
@@ -234,7 +253,8 @@ class FinetuneTrainer:
                         "epoch": self.epoch,
                         "train_loss": train_loss,
                         "train_accuracy": train_accuracy,
-                        "learning_rate": self.optimizer.param_groups[0]["lr"],
+                        "head_lr": self.optimizer.param_groups[0]["lr"],
+                        "encoder_lr": self.optimizer.param_groups[1]["lr"],
                     }
                 )
 

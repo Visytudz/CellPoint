@@ -3,6 +3,7 @@ batch_size: 32
 epochs: 300
 warmup_epochs: 10
 lr: 1e-5
+encoder_lr: 1e-6
 weight_decay: 0.05
 min_lr: 1e-6
 
@@ -10,7 +11,7 @@ min_lr: 1e-6
 seed: 42
 num_workers: 4
 val_interval: 10
-freeze_encoder: true
+unfreeze_encoder_epoch: 50
 
 # Checkpoint settings
 checkpoint_path: null

@@ -82,16 +82,30 @@ class PQAEClassifier(nn.Module):
 
         log.info("Successfully loaded pre-trained encoder weights.")
 
-    def freeze_encoder(self):
-        """Freezes the encoder parameters."""
-        for param in self.grouping.parameters():
-            param.requires_grad = False
-        for param in self.patch_embed.parameters():
-            param.requires_grad = False
-        for param in self.encoder.parameters():
-            param.requires_grad = False
-        for param in self.classification_head.parameters():
-            param.requires_grad = True
+    @property
+    def encoder_parameters(self) -> list[torch.nn.Parameter]:
+        """Returns the encoder parameters."""
+        params = []
+        params += list(self.grouping.parameters())
+        params += list(self.patch_embed.parameters())
+        params += list(self.encoder.parameters())
+        return params
+
+    def toggle_encoder(self, freeze: bool = True):
+        """Freezes or unfreezes the encoder parameters."""
+        for param in self.encoder_parameters:
+            param.requires_grad = not freeze
+
+    def log_parameters(self):
+        """Logs the total and trainable parameter counts."""
+        total_params = sum(p.numel() for p in self.parameters())
+        trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        log.info(f"Total parameters: {total_params:,}")
+        log.info(f"Trainable parameters: {trainable_params:,}")
+        if total_params > trainable_params:
+            log.info(
+                f"Note: {total_params - trainable_params:,} parameters are frozen."
+            )
 
     def forward(self, pts: torch.Tensor) -> torch.Tensor:
         """
