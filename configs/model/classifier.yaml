@@ -23,5 +23,3 @@ params:
     embed_dim: 384
     hidden_dim: 256
     num_classes: 40
-
-  pretrained_ckpt: "/home/verve/Project/research/CellPoint/outputs/pqae1/last_model.pth"

@@ -46,31 +46,30 @@ class PQAEClassifier(nn.Module):
         self.encoder = EncoderWrapper(**params.encoder)
         self.classification_head = ClassificationHead(**params.classifier_head)
 
-        self._load_from_pretrain(params.pretrained_ckpt)
-
-    def _load_from_pretrain(self, ckpt_path: str = None):
-        """Loads pre-trained weights into the encoder from a checkpoint."""
+    def load_pretrain(self, ckpt_path: str = None, only_encoder: bool = True):
+        """Loads pre-trained weights from a checkpoint."""
         if ckpt_path is None:
             log.warning(
-                "No pre-trained encoder checkpoint path provided. Training from scratch."
+                "No pre-trained checkpoint path provided. Training from scratch."
             )
             return
-        log.info(f"Loading encoder pre-trained weights from: {ckpt_path}")
+        log.info(f"Loading pre-trained weights from: {ckpt_path}")
 
         # read pre-trained checkpoint
         checkpoint = torch.load(ckpt_path, map_location="cpu")
         pretrain_state_dict = checkpoint["model_state_dict"]
-        encoder_state_dict = {}
+        state_dict = {}
         for k, v in pretrain_state_dict.items():
-            if (
+            if only_encoder and not (
                 k.startswith("grouping.")
                 or k.startswith("patch_embed.")
                 or k.startswith("encoder.")
             ):
-                encoder_state_dict[k] = v
+                continue
+            state_dict[k] = v
 
         # load weights into encoder
-        incompatible_keys = self.load_state_dict(encoder_state_dict, strict=False)
+        incompatible_keys = self.load_state_dict(state_dict, strict=False)
         if incompatible_keys.missing_keys:
             log.warning(
                 f"Missing keys when loading pretrain: {incompatible_keys.missing_keys}"

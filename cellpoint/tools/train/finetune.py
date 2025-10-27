@@ -131,19 +131,10 @@ class FinetuneTrainer:
     def _load_checkpoint(self):
         """Loads a checkpoint to resume training."""
         checkpoint_path = self.cfg.training.get("checkpoint_path")
-        if checkpoint_path is None:
-            log.info("No checkpoint specified. Starting training from scratch.")
-            return
-        checkpoint_path = Path(checkpoint_path)
-        if not checkpoint_path.exists():
-            log.warning(
-                f"Checkpoint path {checkpoint_path} does not exist. Starting from scratch."
-            )
-            return
-
-        log.info(f"Loading checkpoint from: {checkpoint_path}")
+        self.model.load_pretrain(
+            ckpt_path=checkpoint_path, only_encoder=self.cfg.training.only_encoder
+        )
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        self.model.load_state_dict(checkpoint["model_state_dict"])
         if self.cfg.training.get("resume_training", False):
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])

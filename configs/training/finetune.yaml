@@ -15,4 +15,5 @@ unfreeze_encoder_epoch: 50
 
 # Checkpoint settings
 checkpoint_path: null
+only_encoder: true
 resume_training: false
