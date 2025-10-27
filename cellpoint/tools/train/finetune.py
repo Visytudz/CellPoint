@@ -189,6 +189,7 @@ class FinetuneTrainer:
 
             # backward
             loss.backward()
+            nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
 
             # Update metrics
