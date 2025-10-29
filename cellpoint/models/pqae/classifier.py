@@ -79,8 +79,6 @@ class PQAEClassifier(nn.Module):
                 f"Unexpected keys when loading pretrain: {incompatible_keys.unexpected_keys}"
             )
 
-        log.info("Successfully loaded pre-trained encoder weights.")
-
     @property
     def encoder_parameters(self) -> list[torch.nn.Parameter]:
         """Returns the encoder parameters."""
