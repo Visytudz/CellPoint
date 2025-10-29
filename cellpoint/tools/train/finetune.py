@@ -12,7 +12,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, ConcatDataset
 from timm.scheduler import CosineLRScheduler
 
-from cellpoint.utils.misc import decompose_confusion_matrix
+from cellpoint.utils.misc import decompose_confusion_matrix, plot_confusion_matrix
 
 
 log = logging.getLogger(__name__)
@@ -47,6 +47,8 @@ class FinetuneTrainer:
         self.epoch = 0
         self.best_val_accuracy = 0.0
         self.class_names = self.train_loader.dataset.class_names
+        self.cm_dir = self.output_dir / "confusion_matrices"
+        self.cm_dir.mkdir(parents=True, exist_ok=True)
         self._load_checkpoint()
 
     def _setup_random_seed(self):
@@ -274,6 +276,20 @@ class FinetuneTrainer:
                 if val_accuracy > self.best_val_accuracy:
                     self.best_val_accuracy = val_accuracy
                     self._save_checkpoint("best_model.pth")
+                # Plot and save confusion matrices
+                plot_confusion_matrix(
+                    train_cm.cpu().numpy(),
+                    class_names=self.class_names,
+                    save_path=self.cm_dir / f"train_epoch{self.epoch}.png",
+                    title=f"Training Confusion Matrix - Epoch {self.epoch}",
+                )
+                plot_confusion_matrix(
+                    val_cm.cpu().numpy(),
+                    class_names=self.class_names,
+                    save_path=self.cm_dir / f"val_epoch{self.epoch}.png",
+                    title=f"Validation Confusion Matrix - Epoch {self.epoch}",
+                )
+                # Log to WandB
                 if self.cfg.wandb.log:
                     train_targets, train_preds = decompose_confusion_matrix(train_cm)
                     val_targets, val_preds = decompose_confusion_matrix(val_cm)
