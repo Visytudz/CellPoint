@@ -46,6 +46,7 @@ class FinetuneTrainer:
         # State attributes
         self.epoch = 0
         self.best_val_accuracy = 0.0
+        self.class_names = self.train_loader.dataset.class_names
         self._load_checkpoint()
 
     def _setup_random_seed(self):
@@ -283,10 +284,14 @@ class FinetuneTrainer:
                             "train_cm": wandb.plot.confusion_matrix(
                                 y_true=train_targets,
                                 preds=train_preds,
+                                class_names=self.class_names,
+                                title="Training Confusion Matrix",
                             ),
                             "val_cm": wandb.plot.confusion_matrix(
                                 y_true=val_targets,
                                 preds=val_preds,
+                                class_names=self.class_names,
+                                title="Validation Confusion Matrix",
                             ),
                         }
                     )

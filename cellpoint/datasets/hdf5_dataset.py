@@ -159,6 +159,11 @@ class HDF5Dataset(data.Dataset):
         save_ply(point_cloud, filename)
         print(f"Point cloud saved to {filename}")
 
+    @property
+    def class_names(self) -> List[str]:
+        """Returns the sorted list of class names in the dataset."""
+        return [self.label2name[label] for label in range(len(self.label2name))]
+
     def __getitem__(self, item: int) -> Dict[str, Any]:
         """Retrieves a single data point from the dataset using lazy loading."""
         h5_path, index_in_file = self.datapoints[item]
