@@ -162,7 +162,9 @@ class HDF5Dataset(data.Dataset):
     @property
     def class_names(self) -> List[str]:
         """Returns the sorted list of class names in the dataset."""
-        return [self.label2name[label] for label in range(len(self.label2name))]
+        names = [value for key, value in sorted(self.label2name.items()) if key != -1]
+        print(names)
+        return names
 
     def __getitem__(self, item: int) -> Dict[str, Any]:
         """Retrieves a single data point from the dataset using lazy loading."""
