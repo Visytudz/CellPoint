@@ -12,6 +12,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, ConcatDataset
 from timm.scheduler import CosineLRScheduler
 
+from cellpoint.utils.misc import decompose_confusion_matrix
+
 
 log = logging.getLogger(__name__)
 
@@ -272,7 +274,22 @@ class FinetuneTrainer:
                     self.best_val_accuracy = val_accuracy
                     self._save_checkpoint("best_model.pth")
                 if self.cfg.wandb.log:
-                    wandb.log({"epoch": self.epoch, "val_accuracy": val_accuracy})
+                    train_targets, train_preds = decompose_confusion_matrix(train_cm)
+                    val_targets, val_preds = decompose_confusion_matrix(val_cm)
+                    wandb.log(
+                        {
+                            "epoch": self.epoch,
+                            "val_accuracy": val_accuracy,
+                            "train_cm": wandb.plot.confusion_matrix(
+                                y_true=train_targets,
+                                preds=train_preds,
+                            ),
+                            "val_cm": wandb.plot.confusion_matrix(
+                                y_true=val_targets,
+                                preds=val_preds,
+                            ),
+                        }
+                    )
 
             # Housekeeping
             self.scheduler.step(self.epoch)

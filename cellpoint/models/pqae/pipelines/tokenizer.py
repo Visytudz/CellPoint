@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from cellpoint.utils.misc import fps, get_neighbors
+from cellpoint.utils.ops import fps, get_neighbors
 from cellpoint.utils.knn import knn_vanilla as knn
 
 

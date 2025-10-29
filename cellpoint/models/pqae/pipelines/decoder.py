@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from ..layers.attention import Attention
 from ..layers.transformer import TransformerDecoder
-from cellpoint.utils.misc import get_pos_embed
+from cellpoint.utils.ops import get_pos_embed
 
 
 class PositionalQuery(nn.Module):

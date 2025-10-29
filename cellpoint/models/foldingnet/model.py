@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from cellpoint.utils.knn import knn_block as knn
-from cellpoint.utils.misc import local_cov, local_maxpool, get_neighbors
+from cellpoint.utils.ops import local_cov, local_maxpool, get_neighbors
 
 
 class EdgeConv(nn.Module):
