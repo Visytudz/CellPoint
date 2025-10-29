@@ -116,13 +116,19 @@ class FinetuneTrainer:
 
     def _build_metrics(self):
         """Builds TorchMetrics trackers."""
-        log.info("Building metrics (Accuracy).")
+        log.info("Building metrics (Accuracy, ConfusionMatrix).")
         num_classes = self.cfg.model.params.classifier_head.num_classes
         metrics = {
             "train_acc": torchmetrics.Accuracy(
                 task="multiclass", num_classes=num_classes
             ).to(self.device),
             "val_acc": torchmetrics.Accuracy(
+                task="multiclass", num_classes=num_classes
+            ).to(self.device),
+            "train_cm": torchmetrics.ConfusionMatrix(
+                task="multiclass", num_classes=num_classes
+            ).to(self.device),
+            "val_cm": torchmetrics.ConfusionMatrix(
                 task="multiclass", num_classes=num_classes
             ).to(self.device),
         }
@@ -160,11 +166,12 @@ class FinetuneTrainer:
         if verbose:
             log.info(f"Saved checkpoint to {checkpoint_path} at epoch {self.epoch}")
 
-    def _train_epoch(self) -> tuple[float, float]:
+    def _train_epoch(self) -> tuple[float, float, torch.Tensor]:
         """Runs a single training epoch."""
         self.model.train()
         total_loss = 0.0
         self.metrics["train_acc"].reset()
+        self.metrics["train_cm"].reset()
 
         progress_bar = tqdm(
             self.train_loader, desc=f"Epoch {self.epoch} Training", leave=False
@@ -185,18 +192,21 @@ class FinetuneTrainer:
 
             # Update metrics
             self.metrics["train_acc"].update(logits, labels)
+            self.metrics["train_cm"].update(logits, labels)
             total_loss += loss.item()
             progress_bar.set_postfix(loss=loss.item())
 
         train_loss = total_loss / len(self.train_loader)
         train_accuracy = self.metrics["train_acc"].compute()
-        return train_loss, train_accuracy
+        train_cm = self.metrics["train_cm"].compute()
+        return train_loss, train_accuracy, train_cm
 
     @torch.no_grad()
-    def _validate_epoch(self) -> float:
+    def _validate_epoch(self) -> tuple[float, torch.Tensor]:
         """Runs validation and returns accuracy."""
         self.model.eval()
         self.metrics["val_acc"].reset()
+        self.metrics["val_cm"].reset()
 
         for batch in self.val_loader:
             points = batch["points"].to(self.device)
@@ -204,9 +214,11 @@ class FinetuneTrainer:
 
             logits = self.model(points)  # (B, num_classes)
             self.metrics["val_acc"].update(logits, labels)
+            self.metrics["val_cm"].update(logits, labels)
 
         accuracy = self.metrics["val_acc"].compute()
-        return accuracy
+        val_cm = self.metrics["val_cm"].compute()
+        return accuracy, val_cm
 
     def fit(self):
         log.info(f"Using device: {self.device}")
@@ -233,7 +245,7 @@ class FinetuneTrainer:
                 is_encoder_frozen = False
 
             # Train step
-            train_loss, train_accuracy = self._train_epoch()
+            train_loss, train_accuracy, train_cm = self._train_epoch()
             self._save_checkpoint("last_model.pth", verbose=False)
             log.info(
                 f"Epoch {self.epoch}/{self.cfg.training.epochs} | "
@@ -254,18 +266,13 @@ class FinetuneTrainer:
             val_interval = self.cfg.training.get("val_interval")
             if epoch % val_interval == 0 or epoch == self.cfg.training.epochs:
                 log.info(f"--- Performing validation at epoch {self.epoch} ---")
-                val_accuracy = self._validate_epoch()
+                val_accuracy, val_cm = self._validate_epoch()
                 log.info(f"Validation Accuracy: {val_accuracy:.4f}")
                 if val_accuracy > self.best_val_accuracy:
                     self.best_val_accuracy = val_accuracy
                     self._save_checkpoint("best_model.pth")
                 if self.cfg.wandb.log:
-                    wandb.log(
-                        {
-                            "epoch": self.epoch,
-                            "val_accuracy": val_accuracy,
-                        }
-                    )
+                    wandb.log({"epoch": self.epoch, "val_accuracy": val_accuracy})
 
             # Housekeeping
             self.scheduler.step(self.epoch)

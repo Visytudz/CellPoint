@@ -1,6 +1,7 @@
 splits: ["train", "test"]
 num_points: 2048
 
+# Datasets to be used, when pretrain, many can be selected; when finetune, only one can be selected.
 selected:
   - shapenetcorev2
 
