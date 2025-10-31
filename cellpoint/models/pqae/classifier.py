@@ -104,20 +104,7 @@ class PQAEClassifier(nn.Module):
                 f"Note: {total_params - trainable_params:,} parameters are frozen."
             )
 
-    def forward(self, pts: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass for classification.
-
-        Parameters
-        ----------
-        pts : torch.Tensor
-            Input point cloud. Shape: (B, N, 3).
-
-        Returns
-        -------
-        torch.Tensor
-            Classification logits. Shape: (B, num_classes).
-        """
+    def get_features(self, pts: torch.Tensor) -> torch.Tensor:
         # 1. Tokenize (Grouping + Patch Embedding)
         neighborhood, centers = self.grouping(pts)
         tokens = self.patch_embed(neighborhood)  # (B, G, C)
@@ -132,7 +119,26 @@ class PQAEClassifier(nn.Module):
         # (B, C) & (B, C) -> (B, 2*C)
         global_feature = torch.cat((cls_feature.squeeze(1), max_pool_feature), dim=1)
 
-        # 4. Classify
+        return global_feature
+
+    def forward(self, pts: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass for classification.
+
+        Parameters
+        ----------
+        pts : torch.Tensor
+            Input point cloud. Shape: (B, N, 3).
+
+        Returns
+        -------
+        torch.Tensor
+            Classification logits. Shape: (B, num_classes).
+        """
+        # 1. get global features
+        global_feature = self.get_features(pts)  # (B, 2*C)
+
+        # 2. classification head
         logits = self.classification_head(global_feature)  # (B, num_classes)
 
         return logits
