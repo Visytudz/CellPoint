@@ -18,12 +18,20 @@ class PointViewGenerator(nn.Module):
         The minimum percentage of points to keep in a crop, by default 0.6.
     max_crop_rate : float, optional
         The maximum percentage of points to keep in a crop, by default 1.0.
+    random_rotate : bool, optional
+        Whether to apply random rotation to the cropped views, by default True.
     """
 
-    def __init__(self, min_crop_rate: float = 0.6, max_crop_rate: float = 1.0):
+    def __init__(
+        self,
+        min_crop_rate: float = 0.6,
+        max_crop_rate: float = 1.0,
+        random_rotate: bool = True,
+    ):
         super().__init__()
         self.min_crop_rate = min_crop_rate
         self.max_crop_rate = max_crop_rate
+        self.random_rotate = random_rotate
         assert 0.0 < self.min_crop_rate <= self.max_crop_rate <= 1.0, (
             "min_crop_rate and max_crop_rate must satisfy 0.0 < min_crop_rate <= "
             "max_crop_rate <= 1.0"
@@ -94,8 +102,12 @@ class PointViewGenerator(nn.Module):
         view2, center2 = self._crop_and_normalize(pts)
 
         # Apply independent random rotations to each view
-        view1_rotated = batch_rotate_torch(view1)
-        view2_rotated = batch_rotate_torch(view2)
+        if self.random_rotate:
+            view1_rotated = batch_rotate_torch(view1)
+            view2_rotated = batch_rotate_torch(view2)
+        else:
+            view1_rotated = view1
+            view2_rotated = view2
 
         # Calculate the relative position of the original centers
         relative_center = center2 - center1
