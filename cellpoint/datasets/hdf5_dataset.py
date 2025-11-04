@@ -6,7 +6,7 @@ import numpy as np
 from glob import glob
 import torch.utils.data as data
 from numpy.typing import NDArray
-from typing import List, Tuple, Dict, Optional, Any
+from typing import List, Tuple, Dict, Optional, Any, Union
 
 from cellpoint.utils.io import save_ply
 from cellpoint.utils.process import normalize_to_unit_sphere
@@ -17,7 +17,7 @@ class HDF5Dataset(data.Dataset):
         self,
         root: str,
         name: str,
-        class_choice: Optional[str] = None,
+        class_choice: Optional[Union[str, list[str]]] = None,
         num_points: int = 2048,
         splits: list[str] = ["train"],
         normalize: bool = True,
@@ -45,7 +45,9 @@ class HDF5Dataset(data.Dataset):
         """
         self.root: str = os.path.join(root, name)
         self.dataset_name: str = name
-        self.class_choice: Optional[str] = class_choice
+        self.class_choice: Optional[Union[str, list[str]]] = class_choice
+        if isinstance(class_choice, str):
+            self.class_choice = [class_choice]
         self.num_points: int = num_points
         self.split: list[str] = splits
         self.normalize: bool = normalize
@@ -75,7 +77,7 @@ class HDF5Dataset(data.Dataset):
 
         # Filter the data by class choice
         if self.class_choice is not None:
-            indices_to_keep = self.name == self.class_choice
+            indices_to_keep = np.isin(self.name, self.class_choice)
             # Filter the index, labels, and ids
             self.datapoints = [
                 dp for i, dp in enumerate(self.datapoints) if indices_to_keep[i]
