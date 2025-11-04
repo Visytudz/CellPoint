@@ -6,7 +6,7 @@ selected:
   - shapenetcorev2
 
 available:
-  shapenet55-34:
+  shapenet55_34:
     _target_: "cellpoint.datasets.ShapeNetDataset"
     pc_path: "/home/verve/Project/research/CellPoint/datasets/shapenet55-34/pcl"
     split_path: "/home/verve/Project/research/CellPoint/datasets/shapenet55-34/splits"
