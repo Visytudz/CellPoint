@@ -18,10 +18,9 @@ class HDF5Dataset(data.Dataset):
         root: str,
         name: str,
         class_choice: Optional[Union[str, list[str]]] = None,
-        num_points: int = 2048,
+        num_points: int = None,
         splits: list[str] = ["train"],
         normalize: bool = True,
-        transform=None,
     ) -> None:
         """
         Initialize the dataset with lazy loading.
@@ -35,13 +34,11 @@ class HDF5Dataset(data.Dataset):
         class_choice : Optional[str], optional
             The name of the class to load.
         num_points : int, optional
-            The number of points to load.
+            The number of points to load. We use random sampling, so it's recommended not to use this.
         splits : list[str], optional
             The splits of the dataset.
         normalize : bool, optional
             Whether to normalize the point cloud.
-        transform : callable, optional
-            A function/transform that takes in a point cloud and returns a transformed version.
         """
         self.root: str = os.path.join(root, name)
         self.dataset_name: str = name
@@ -51,7 +48,6 @@ class HDF5Dataset(data.Dataset):
         self.num_points: int = num_points
         self.split: list[str] = splits
         self.normalize: bool = normalize
-        self.transform = transform
 
         # Load metadata from the JSON file
         self._load_metadata()
@@ -66,10 +62,10 @@ class HDF5Dataset(data.Dataset):
             )
 
         # self.datapoints will store tuples of (h5_file_path, index_within_file)
-        self.datapoints: List[Tuple[str, int]] = []
+        self.points: List[Tuple[str, int]] = []
         # Labels and IDs are small, so we can load them for easier filtering.
-        label_list, id_list = self._load_metadata_from_h5(self.path_h5py_all)
-        self.label: NDArray[np.int64] = np.concatenate(label_list, axis=0)  # (B, 1)
+        label_list, id_list = self._load_h5(self.path_h5py_all)
+        self.label: NDArray[np.int32] = np.concatenate(label_list, axis=0)  # (B, 1)
         self.id: NDArray[np.str_] = np.concatenate(id_list, axis=0)  # (B, )
         self.name: NDArray[np.str_] = np.array(
             [self.label2name[label_idx] for label_idx in self.label.squeeze()]
@@ -79,9 +75,7 @@ class HDF5Dataset(data.Dataset):
         if self.class_choice is not None:
             indices_to_keep = np.isin(self.name, self.class_choice)
             # Filter the index, labels, and ids
-            self.datapoints = [
-                dp for i, dp in enumerate(self.datapoints) if indices_to_keep[i]
-            ]
+            self.points = [dp for i, dp in enumerate(self.points) if indices_to_keep[i]]
             self.label = self.label[indices_to_keep]
             self.id = self.id[indices_to_keep]
             self.name = self.name[indices_to_keep]
@@ -114,30 +108,30 @@ class HDF5Dataset(data.Dataset):
         self.path_h5py_all.extend(sorted(glob(hdf5_pattern)))
         return
 
-    def _load_metadata_from_h5(
+    def _load_h5(
         self, paths: List[str]
-    ) -> Tuple[List[NDArray[np.int64]], List[NDArray[np.str_]]]:
+    ) -> Tuple[List[NDArray[np.int32]], List[NDArray[np.str_]]]:
         """
         Loads only labels and IDs from HDF5 files and builds the data index.
         The actual point cloud data is NOT loaded here.
         """
-        all_label: List[NDArray[np.int64]] = []
+        all_label: List[NDArray[np.int32]] = []
         all_id: List[NDArray[np.str_]] = []
         for h5_path in paths:
             with h5py.File(h5_path, "r") as f:
-                num_points_in_file = f["data"].shape[0]
+                samples_num = f["data"].shape[0]
                 # Build the index for lazy loading
-                for i in range(num_points_in_file):
-                    self.datapoints.append((h5_path, i))
+                for i in range(samples_num):
+                    self.points.append((h5_path, i))
                 # Load labels and IDs
                 if "label" in f:
-                    all_label.append(f["label"][:].astype("int64"))
+                    all_label.append(f["label"][:].astype("int32"))
                 else:
-                    all_label.append(np.array([-1] * num_points_in_file))
+                    all_label.append(np.array([-1] * samples_num))
                 if "id" in f:
                     all_id.append(f["id"][:].astype("str"))
                 else:
-                    all_id.append(np.array([""] * num_points_in_file))
+                    all_id.append(np.array([""] * samples_num))
         return all_label, all_id
 
     def to_ply(self, item: int, filename: str, normalize: bool) -> None:
@@ -153,7 +147,7 @@ class HDF5Dataset(data.Dataset):
         normalize : bool
             Whether to normalize the point cloud before saving.
         """
-        h5_path, index_in_file = self.datapoints[item]
+        h5_path, index_in_file = self.points[item]
         with h5py.File(h5_path, "r") as f:
             point_cloud = f["data"][index_in_file]  # (N, 3)
         if normalize:
@@ -165,24 +159,28 @@ class HDF5Dataset(data.Dataset):
     def class_names(self) -> List[str]:
         """Returns the sorted list of class names in the dataset."""
         names = [value for key, value in sorted(self.label2name.items()) if key != -1]
-        print(names)
         return names
 
     def __getitem__(self, item: int) -> Dict[str, Any]:
         """Retrieves a single data point from the dataset using lazy loading."""
-        h5_path, index_in_file = self.datapoints[item]
+        h5_path, index_in_file = self.points[item]
+
+        # Get point cloud
         with h5py.File(h5_path, "r") as f:
-            pcl = f["data"][index_in_file][: self.num_points].astype(np.float32)
+            pcl = f["data"][index_in_file].astype(np.float32)
+        if self.num_points is not None and self.num_points < pcl.shape[0]:
+            choice = np.random.choice(
+                pcl.shape[0], self.num_points, replace=False
+            )  # (num_points, )
+            pcl = pcl[choice, :]
         if self.normalize:
             pcl = normalize_to_unit_sphere(pcl)
-        label = self.label[item]  # Get pre-loaded label
+        pcl_tensor = torch.from_numpy(pcl)
 
-        # Data augmentation
-        if self.transform:
-            pcl_tensor = self.transform(torch.from_numpy(pcl[None, ...])).squeeze(0)
-        else:
-            pcl_tensor = torch.from_numpy(pcl)
+        # Get label
+        label = self.label[item]
         label_tensor = torch.from_numpy(label)
+
         sample = {
             "points": pcl_tensor,
             "label": label_tensor,
@@ -194,20 +192,4 @@ class HDF5Dataset(data.Dataset):
 
     def __len__(self) -> int:
         """Returns the total number of samples in the dataset."""
-        return len(self.datapoints)
-
-
-if __name__ == "__main__":
-    root = "datasets"
-    dataset_name = "shapenetcorev2"
-    split = ["train", "val", "test"]
-    dataset = HDF5Dataset(
-        root=root,
-        name=dataset_name,
-        num_points=20480,
-        splits=split,
-        # class_choice="cancerous"
-    )
-    print(f"Dataset size: {len(dataset)}")
-    print(dataset[70])
-    dataset.to_ply(70, "cell01-01.ply", normalize=True)
+        return len(self.points)

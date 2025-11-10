@@ -20,9 +20,12 @@ augmentations:
   rotate: true
   scale_and_translate: false
   jitter: true
+  fps: true
   
   scale_low: 0.8
   scale_high: 1.2
   translate_range: 0.2
   jitter_clip: 0.05
   jitter_sigma: 0.01
+  fps_num_points: 2048
+  fps_expand_rate: 1.1

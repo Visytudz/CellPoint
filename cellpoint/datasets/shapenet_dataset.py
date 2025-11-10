@@ -14,8 +14,7 @@ class ShapeNetDataset(data.Dataset):
         pc_path: str,
         split_path: str,
         splits: List[str] = ["train"],
-        num_points: int = 2048,
-        transform: Optional[Any] = None,
+        num_points: int = None,
     ):
         """
         Initializes the ShapeNetPointCloud dataset.
@@ -30,13 +29,10 @@ class ShapeNetDataset(data.Dataset):
             The dataset split(s) to use. Can be a list containing any combination of
             "train", "val", and "test". Default is ["train"].
         num_points : int, optional
-            The number of points to sample from each point cloud. Default is 2048.
-        transform : callable, optional
-            A function/transform that takes in a point cloud and returns a transformed version.
+            The number of points to load. We use random sampling, so it's recommended not to use this.
         """
         self.pc_path = pc_path
         self.num_points = num_points
-        self.transform = transform
         self.file_list: List[Dict[str, str]] = []
         for split in splits:
             self.file_list.extend(self._load_file_list(split_path, split))
@@ -76,16 +72,11 @@ class ShapeNetDataset(data.Dataset):
         point_cloud = np.load(path).astype(np.float32)  # (N, 3)
 
         # Randomly sample, normalize, and convert to tensor
-        if len(point_cloud) > self.num_points:
+        if self.num_points is not None and self.num_points < len(point_cloud):
             indices = np.random.choice(len(point_cloud), self.num_points, replace=False)
             point_cloud = point_cloud[indices]
         point_cloud = normalize_to_unit_sphere(point_cloud)
-        if self.transform:
-            point_cloud_tensor = self.transform(
-                torch.from_numpy(point_cloud[None, ...])
-            ).squeeze(0)
-        else:
-            point_cloud_tensor = torch.from_numpy(point_cloud)
+        point_cloud_tensor = torch.from_numpy(point_cloud)
 
         sample = {
             "points": point_cloud_tensor,
@@ -98,18 +89,3 @@ class ShapeNetDataset(data.Dataset):
     def __len__(self):
         """Returns the total number of samples in the dataset."""
         return len(self.file_list)
-
-
-if __name__ == "__main__":
-    dataset = ShapeNetDataset(
-        pc_path="/home/verve/Project/research/CellPoint/datasets/shapenet55-34/pcl",
-        split_path="/home/verve/Project/research/CellPoint/datasets/shapenet55-34/splits",
-        splits=["train", "test"],
-        num_points=2048,
-    )
-    print(f"Dataset size: {len(dataset)}")
-    sample = dataset[0]
-    print(f"Sample ID: {sample['id']}")
-    print(f"Sample Label: {sample['label']}")
-    print(f"Sample Name: {sample['points']}")
-    print(f"Point cloud shape: {sample['points'].shape}")

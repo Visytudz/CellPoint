@@ -1,15 +1,30 @@
 import torch
 import numpy as np
+from .ops import fps
 
 
 class Compose:
-    def __init__(self, transforms):
+    def __init__(self, transforms: list[callable]):
+        if not transforms:
+            transforms = [torch.nn.Identity()]
         self.transforms = transforms
 
     def __call__(self, points):
         for t in self.transforms:
             points = t(points)
         return points
+
+
+class PointcloudFarthestPointSampling:
+    def __init__(self, num_points: int, expand_ratio: float = 1.1):
+        self.num_points = num_points
+        self.expand_ratio = expand_ratio
+
+    def __call__(self, points: torch.Tensor) -> torch.Tensor:
+        sampled_points = fps(points, int(self.num_points * self.expand_ratio))
+        choice = torch.randperm(sampled_points.shape[1])[: self.num_points]
+        sampled_points = sampled_points[:, choice, :]
+        return sampled_points
 
 
 class PointcloudRotate:

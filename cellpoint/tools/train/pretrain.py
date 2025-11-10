@@ -13,6 +13,7 @@ from timm.scheduler import CosineLRScheduler
 from cellpoint.loss import ChamferLoss
 from cellpoint.utils.transforms import (
     Compose,
+    PointcloudFarthestPointSampling,
     PointcloudRotate,
     PointcloudScaleAndTranslate,
     PointcloudJitter,
@@ -76,6 +77,14 @@ class PretrainTrainer:
         cfg_aug = self.cfg.training.augmentations
         transforms = []
 
+        if cfg_aug.get("fps"):
+            transforms.append(
+                PointcloudFarthestPointSampling(num_points=cfg_aug.fps_num_points)
+            )
+            log.info(
+                f"  - Farthest Point Sampling added: {cfg_aug.fps_num_points} points"
+            )
+
         if cfg_aug.get("rotate"):
             transforms.append(PointcloudRotate())
             log.info("  - Rotate added.")
@@ -96,7 +105,7 @@ class PretrainTrainer:
             )
             log.info("  - Jitter added.")
 
-        return Compose(transforms) if transforms else None
+        return Compose(transforms)
 
     def _build_dataloader(self, splits: list[str]) -> DataLoader:
         """Creates a DataLoader for the specified data split."""
@@ -107,9 +116,7 @@ class PretrainTrainer:
             ds_config = self.cfg.dataset.available[dataset_key]
             log.info(f"Loading dataset: '{dataset_key}' by {ds_config._target_}")
 
-            dataset = hydra.utils.instantiate(
-                ds_config, splits=splits, transform=self.train_transform
-            )
+            dataset = hydra.utils.instantiate(ds_config, splits=splits)
             datasets_to_concat.append(dataset)
 
         final_dataset = (
@@ -181,6 +188,7 @@ class PretrainTrainer:
 
         for batch in progress_bar:
             points = batch["points"].to(self.device)
+            points = self.train_transform(points)
             self.optimizer.zero_grad()
 
             # forward
