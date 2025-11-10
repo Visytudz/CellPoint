@@ -11,13 +11,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 from timm.scheduler import CosineLRScheduler
 
 from cellpoint.loss import ChamferLoss
-from cellpoint.utils.transforms import (
-    Compose,
-    PointcloudFarthestPointSampling,
-    PointcloudRotate,
-    PointcloudScaleAndTranslate,
-    PointcloudJitter,
-)
+from cellpoint.utils.transforms import Compose
 
 
 log = logging.getLogger(__name__)
@@ -40,7 +34,7 @@ class PretrainTrainer:
         self._setup_random_seed()
 
         # Instantiate components
-        self.train_transform = self._build_transforms()
+        self.train_transform = Compose.from_cfg(self.cfg.training.augmentations)
         self.train_loader = self._build_dataloader(cfg.dataset.splits)
         self.model = self._build_model().to(self.device)
         self.loss_fn = ChamferLoss()
@@ -70,42 +64,6 @@ class PretrainTrainer:
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-
-    def _build_transforms(self):
-        """Builds a composition of transforms from the configuration."""
-        log.info("Building data augmentations...")
-        cfg_aug = self.cfg.training.augmentations
-        transforms = []
-
-        if cfg_aug.get("fps"):
-            transforms.append(
-                PointcloudFarthestPointSampling(num_points=cfg_aug.fps_num_points)
-            )
-            log.info(
-                f"  - Farthest Point Sampling added: {cfg_aug.fps_num_points} points"
-            )
-
-        if cfg_aug.get("rotate"):
-            transforms.append(PointcloudRotate())
-            log.info("  - Rotate added.")
-
-        if cfg_aug.get("scale_and_translate"):
-            transforms.append(
-                PointcloudScaleAndTranslate(
-                    scale_low=cfg_aug.scale_low,
-                    scale_high=cfg_aug.scale_high,
-                    translate_range=cfg_aug.translate_range,
-                )
-            )
-            log.info("  - Scale and Translate added.")
-
-        if cfg_aug.get("jitter"):
-            transforms.append(
-                PointcloudJitter(clip=cfg_aug.jitter_clip, sigma=cfg_aug.jitter_sigma)
-            )
-            log.info("  - Jitter added.")
-
-        return Compose(transforms)
 
     def _build_dataloader(self, splits: list[str]) -> DataLoader:
         """Creates a DataLoader for the specified data split."""

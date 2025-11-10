@@ -9,6 +9,29 @@ class Compose:
             transforms = [torch.nn.Identity()]
         self.transforms = transforms
 
+    @classmethod
+    def from_cfg(cls, cfg: dict):
+        transforms = []
+        if cfg.get("fps"):
+            transforms.append(
+                PointcloudFarthestPointSampling(num_points=cfg["fps_num_points"])
+            )
+        if cfg.get("rotate"):
+            transforms.append(PointcloudRotate())
+        if cfg.get("scale_and_translate"):
+            transforms.append(
+                PointcloudScaleAndTranslate(
+                    scale_low=cfg["scale_low"],
+                    scale_high=cfg["scale_high"],
+                    translate_range=cfg["translate_range"],
+                )
+            )
+        if cfg.get("jitter"):
+            transforms.append(
+                PointcloudJitter(clip=cfg["jitter_clip"], sigma=cfg["jitter_sigma"])
+            )
+        return cls(transforms)
+
     def __call__(self, points):
         for t in self.transforms:
             points = t(points)

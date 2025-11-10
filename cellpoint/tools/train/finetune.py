@@ -12,13 +12,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, ConcatDataset
 from timm.scheduler import CosineLRScheduler
 
+from cellpoint.utils.transforms import Compose
 from cellpoint.utils.misc import decompose_confusion_matrix, plot_confusion_matrix
-from cellpoint.utils.transforms import (
-    Compose,
-    PointcloudRotate,
-    PointcloudScaleAndTranslate,
-    PointcloudJitter,
-)
 
 
 log = logging.getLogger(__name__)
@@ -42,8 +37,9 @@ class FinetuneTrainer:
         self._setup_random_seed()
 
         # Instantiate components
-        self.train_loader = self._build_dataloader(["train"], self._build_transforms())
+        self.train_loader = self._build_dataloader(["train"])
         self.val_loader = self._build_dataloader(["val"])
+        self.train_transform = Compose.from_cfg(self.cfg.training.augmentations)
         self.model = self._build_model().to(self.device)
         self.metrics = self._build_metrics()
         self.loss_fn = nn.CrossEntropyLoss()
@@ -65,35 +61,7 @@ class FinetuneTrainer:
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    def _build_transforms(self):
-        """Builds a composition of transforms from the configuration."""
-        log.info("Building data augmentations...")
-        cfg_aug = self.cfg.training.augmentations
-        transforms = []
-
-        if cfg_aug.get("rotate"):
-            transforms.append(PointcloudRotate())
-            log.info("  - Rotate added.")
-
-        if cfg_aug.get("scale_and_translate"):
-            transforms.append(
-                PointcloudScaleAndTranslate(
-                    scale_low=cfg_aug.scale_low,
-                    scale_high=cfg_aug.scale_high,
-                    translate_range=cfg_aug.translate_range,
-                )
-            )
-            log.info("  - Scale and Translate added.")
-
-        if cfg_aug.get("jitter"):
-            transforms.append(
-                PointcloudJitter(clip=cfg_aug.jitter_clip, sigma=cfg_aug.jitter_sigma)
-            )
-            log.info("  - Jitter added.")
-
-        return Compose(transforms) if transforms else None
-
-    def _build_dataloader(self, splits: list[str], transform=None) -> DataLoader:
+    def _build_dataloader(self, splits: list[str]) -> DataLoader:
         """Creates a DataLoader for the specified data split."""
         log.info(f"Creating {splits} dataloader...")
 
@@ -102,9 +70,7 @@ class FinetuneTrainer:
             ds_config = self.cfg.dataset.available[dataset_key]
             log.info(f"Loading dataset: '{dataset_key}' by {ds_config._target_}")
 
-            dataset = hydra.utils.instantiate(
-                ds_config, splits=splits, transform=transform
-            )
+            dataset = hydra.utils.instantiate(ds_config, splits=splits)
             datasets_to_concat.append(dataset)
 
         final_dataset = (
@@ -219,7 +185,8 @@ class FinetuneTrainer:
         )
         for batch in progress_bar:
             points = batch["points"].to(self.device)
-            labels = batch["label"].to(self.device).squeeze()
+            points = self.train_transform(points)
+            labels = batch["label"].to(self.device).squeeze().long()
             self.optimizer.zero_grad()
 
             # forward
