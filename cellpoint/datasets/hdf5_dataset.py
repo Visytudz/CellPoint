@@ -65,7 +65,7 @@ class HDF5Dataset(data.Dataset):
         self.points: List[Tuple[str, int]] = []
         # Labels and IDs are small, so we can load them for easier filtering.
         label_list, id_list = self._load_h5(self.path_h5py_all)
-        self.label: NDArray[np.int32] = np.concatenate(label_list, axis=0)  # (B, 1)
+        self.label: NDArray[np.int64] = np.concatenate(label_list, axis=0)  # (B, 1)
         self.id: NDArray[np.str_] = np.concatenate(id_list, axis=0)  # (B, )
         self.name: NDArray[np.str_] = np.array(
             [self.label2name[label_idx] for label_idx in self.label.squeeze()]
@@ -110,12 +110,12 @@ class HDF5Dataset(data.Dataset):
 
     def _load_h5(
         self, paths: List[str]
-    ) -> Tuple[List[NDArray[np.int32]], List[NDArray[np.str_]]]:
+    ) -> Tuple[List[NDArray[np.int64]], List[NDArray[np.str_]]]:
         """
         Loads only labels and IDs from HDF5 files and builds the data index.
         The actual point cloud data is NOT loaded here.
         """
-        all_label: List[NDArray[np.int32]] = []
+        all_label: List[NDArray[np.int64]] = []
         all_id: List[NDArray[np.str_]] = []
         for h5_path in paths:
             with h5py.File(h5_path, "r") as f:
@@ -125,7 +125,7 @@ class HDF5Dataset(data.Dataset):
                     self.points.append((h5_path, i))
                 # Load labels and IDs
                 if "label" in f:
-                    all_label.append(f["label"][:].astype("int32"))
+                    all_label.append(f["label"][:].astype("int64"))
                 else:
                     all_label.append(np.array([-1] * samples_num))
                 if "id" in f:

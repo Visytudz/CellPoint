@@ -186,7 +186,7 @@ class FinetuneTrainer:
         for batch in progress_bar:
             points = batch["points"].to(self.device)
             points = self.train_transform(points)
-            labels = batch["label"].to(self.device).squeeze().long()
+            labels = batch["label"].to(self.device).squeeze()
             self.optimizer.zero_grad()
 
             # forward
