@@ -8,3 +8,4 @@ defaults:
 
 # global variables
 project_name: "3DCellPoint"
+task: "pretrain" # "pretrain" or "finetune"

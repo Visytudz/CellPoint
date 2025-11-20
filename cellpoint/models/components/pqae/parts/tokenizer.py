@@ -29,19 +29,19 @@ class Group(nn.Module):
         -------
         tuple[torch.Tensor, torch.Tensor]
             A tuple containing:
-            - neighborhood: The local regions (patches). Shape: (B, G, K, C).
+            - neighborhood: The local regions (patches). Shape: (B, P, K, C).
               Each patch is centered at its own origin.
             - center: The centroids of each patch in the original coordinate system.
-              Shape: (B, G, C).
+              Shape: (B, P, C).
         """
         # 1. Use Farthest Point Sampling to select centroids.
-        center = fps(points, self.num_group)  # Shape: (B, G, 3)
+        center = fps(points, self.num_group)  # Shape: (B, P, 3)
         # 2. Use K-Nearest Neighbors to find points for each patch.
         idx = knn(
             points.transpose(1, 2), center.transpose(1, 2), self.group_size
-        )  # Shape: (B, G, K)
+        )  # Shape: (B, P, K)
         # 3. Gather the neighborhood points using the indices.
-        neighborhood = get_neighbors(points.transpose(1, 2), idx)  # Shape: (B, G, K, 3)
+        neighborhood = get_neighbors(points.transpose(1, 2), idx)  # Shape: (B, P, K, 3)
         # 4. Center each patch at its own origin.
         neighborhood = neighborhood - center.unsqueeze(2)
         return neighborhood, center
@@ -77,37 +77,37 @@ class PatchEmbed(nn.Module):
         Parameters
         ----------
         point_groups : torch.Tensor
-            The batch of point cloud patches from the Group module. Shape: (B, G, K, C_in).
+            The batch of point cloud patches from the Group module. Shape: (B, P, K, C_in).
 
         Returns
         -------
         torch.Tensor
-            The token embeddings for each patch. Shape: (B, G, C_out).
+            The token embeddings for each patch. Shape: (B, P, C_out).
         """
-        B, G, K, C_in = point_groups.shape
-        # Reshape for batch processing of patches: (B, G, K, 3) -> (B*G, K, 3)
-        point_groups = point_groups.reshape(B * G, K, C_in)
-        # Transpose for Conv1d, which expects (B*G, C_in, K)
+        B, P, K, C_in = point_groups.shape
+        # Reshape for batch processing of patches: (B, P, K, 3) -> (B*P, K, 3)
+        point_groups = point_groups.reshape(B * P, K, C_in)
+        # Transpose for Conv1d, which expects (B*P, C_in, K)
         patches = point_groups.transpose(2, 1)
 
         # 1. Extract point-wise features
-        point_features = self.first_conv(patches)  # Shape: (B*G, 256, K)
+        point_features = self.first_conv(patches)  # Shape: (B*P, 256, K)
         # 2. Aggregate features with max-pooling to get a global patch feature
         global_feature = torch.max(point_features, dim=2, keepdim=True)[
             0
-        ]  # Shape: (B*G, 256, 1)
+        ]  # Shape: (B*P, 256, 1)
         # 3. Concatenate global feature with point-wise features
         combined_features = torch.cat(
             [global_feature.expand(-1, -1, K), point_features], dim=1
-        )  # Shape: (B*G, 512, K)
+        )  # Shape: (B*P, 512, K)
         # 4. Extract more complex features from the combined representation
         final_point_features = self.second_conv(
             combined_features
-        )  # Shape: (B*G, embed_dim, K)
+        )  # Shape: (B*P, embed_dim, K)
         # 5. Final aggregation to get the definitive token for the patch
         patch_embedding = torch.max(final_point_features, dim=2, keepdim=False)[
             0
-        ]  # Shape: (B*G, embed_dim)
+        ]  # Shape: (B*P, embed_dim)
 
-        # Reshape back to (Batch, Num_Groups, Embed_dim)
-        return patch_embedding.reshape(B, G, self.embed_dim)
+        # Reshape back to (Batch, Num_Patches, Embed_dim)
+        return patch_embedding.reshape(B, P, self.embed_dim)

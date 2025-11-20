@@ -1,5 +1,6 @@
-splits: ["train", "test"]
+splits: ["train", "test"] # used in pretrain, ignored in finetune
 num_points: null # do not set here, set fps in training config
+
 
 # Datasets to be used, when pretrain, many can be selected; when finetune, only one can be selected.
 selected:
@@ -11,28 +12,24 @@ available:
     pc_path: "/home/verve/Project/research/CellPoint/datasets/shapenet55-34/pcl"
     split_path: "/home/verve/Project/research/CellPoint/datasets/shapenet55-34/splits"
     num_points: ${...num_points}
+  modelnet40:
+    _target_: "cellpoint.datasets.HDF5Dataset"
+    path: "/home/verve/Project/research/CellPoint/datasets/modelnet40"
+    num_points: ${...num_points}
   intestine:
     _target_: "cellpoint.datasets.HDF5Dataset"
-    name: "intestine"
-    root: "/home/verve/Project/research/CellPoint/datasets"
+    path: "/home/verve/Project/research/CellPoint/datasets/intestine"
     num_points: ${...num_points}
-    normalize: true
   redblood:
     _target_: "cellpoint.datasets.HDF5Dataset"
-    name: "redblood/class12"
-    root: "/home/verve/Project/research/CellPoint/datasets"
+    path: "/home/verve/Project/research/CellPoint/datasets/redblood/class12"
     num_points: ${...num_points}
-    normalize: true
   intrA:
     _target_: "cellpoint.datasets.HDF5Dataset"
-    name: "intrA"
-    root: "/home/verve/Project/research/CellPoint/datasets"
+    path: "/home/verve/Project/research/CellPoint/datasets/intrA"
     num_points: ${...num_points}
-    normalize: true
   shapenetcorev2:
     _target_: "cellpoint.datasets.HDF5Dataset"
-    name: "shapenetcorev2"
-    root: "/home/verve/Project/research/CellPoint/datasets"
+    path: "/home/verve/Project/research/CellPoint/datasets/shapenetcorev2"
     num_points: ${...num_points}
-    normalize: true
 

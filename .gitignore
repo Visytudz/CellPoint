@@ -1,9 +1,7 @@
 __pycache__/
 .vscode/
-/datasets/
+datasets
 outputs/
 scripts/
 assets/
 notebooks/
-example.ipynb
-run.sh

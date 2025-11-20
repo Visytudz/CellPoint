@@ -5,7 +5,7 @@ from timm.layers import trunc_normal_
 from ..layers.transformer import TransformerEncoder
 
 
-class EncoderWrapper(nn.Module):
+class Encoder(nn.Module):
     """
     A complete Transformer encoder for token sequences from point clouds.
 
@@ -82,33 +82,33 @@ class EncoderWrapper(nn.Module):
         Parameters
         ----------
         patch_tokens : torch.Tensor
-            The token embeddings for the point cloud patches. Shape: (B, G, C).
+            The token embeddings for the point cloud patches. Shape: (B, P, C).
         centers : torch.Tensor
-            The center coordinates of each patch. Shape: (B, G, 3).
+            The center coordinates of each patch. Shape: (B, P, 3).
 
         Returns
         -------
         tuple[torch.Tensor, torch.Tensor]
             A tuple containing:
             - Final CLS token features. Shape: (B, 1, C).
-            - Final patch token features. Shape: (B, G, C).
+            - Final patch token features. Shape: (B, P, C).
         """
         # Generate positional embeddings from patch centers
-        pos_embed = self.pos_embed(centers)  # (B, G, C)
+        pos_embed = self.pos_embed(centers)  # (B, P, C)
 
         # Prepare CLS token and its position for the batch
         cls_token = self.cls_token.expand(patch_tokens.size(0), -1, -1)  # (B, 1, C)
         cls_pos = self.cls_pos.expand(patch_tokens.size(0), -1, -1)  # (B, 1, C)
 
         # Concatenate CLS token with patch tokens and their positions
-        full_tokens = torch.cat((cls_token, patch_tokens), dim=1)  # (B, G+1, C)
-        full_pos = torch.cat((cls_pos, pos_embed), dim=1)  # (B, G+1, C)
+        full_tokens = torch.cat((cls_token, patch_tokens), dim=1)  # (B, P+1, C)
+        full_pos = torch.cat((cls_pos, pos_embed), dim=1)  # (B, P+1, C)
 
         # Pass the full sequence through the Transformer encoder
         encoded_features = self.transformer_encoder(full_tokens, full_pos)
 
         # Separate the final CLS token feature from the patch token features
         cls_feature = encoded_features[:, :1]  # (B, 1, C)
-        patch_features = encoded_features[:, 1:]  # (B, G, C)
+        patch_features = encoded_features[:, 1:]  # (B, P, C)
 
         return cls_feature, patch_features
