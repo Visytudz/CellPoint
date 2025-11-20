@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from cellpoint.utils.process import (
+from cellpoint.utils.misc import (
     batch_rotate_torch,
     batch_normalize_to_unit_sphere_torch,
 )

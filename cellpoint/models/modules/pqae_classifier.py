@@ -6,8 +6,8 @@ from omegaconf import DictConfig
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from refactor.utils.transforms import Compose
-from refactor.models.components.pqae import FeatureExtractor, ClassificationHead
+from cellpoint.utils.transforms import Compose
+from cellpoint.models.components.pqae import FeatureExtractor, ClassificationHead
 
 from logging import getLogger
 

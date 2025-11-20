@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cellpoint"
+version = "0.1.0"
+description = "CellPoint: A Cell Point Cloud Learning Framework"
+requires-python = ">=3.8"
+
+dependencies = [
+    "torch>=1.10.0",
+    "numpy>=1.20.0",
+    "h5py>=3.0.0",
+    "pytorch-lightning>=1.5.0",
+    "hydra-core>=1.1.0",
+    "omegaconf>=2.1.0",
+    "wandb>=0.12.0",
+    "torchmetrics>=0.6.0",
+    "timm>=0.4.0",
+    "pointnet2-ops>=3.0.0",
+    "opencv-python>=4.5.0",
+    "open3d>=0.13.0",
+    "matplotlib>=3.3.0",
+    "seaborn>=0.11.0",
+]
+
+[project.scripts]
+cellpoint-run = "cellpoint.main:main"
+
+[tool.setuptools.packages.find]
+include = ["cellpoint*"]
+
+[tool.setuptools.package-data]
+cellpoint = ["configs/**/*.yaml"]

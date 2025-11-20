@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from refactor.models.components.pqae import (
+from cellpoint.models.components.pqae import (
     PointViewGenerator,
     FeatureExtractor,
     CenterRegressor,

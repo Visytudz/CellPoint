@@ -9,9 +9,9 @@ from pytorch_lightning.callbacks import (
     RichProgressBar,
 )
 
-from refactor.data.datamodule import PointCloudDataModule
-from refactor.models.modules.pqae_pretrain import PQAEPretrain
-from refactor.models.modules.pqae_classifier import PQAEClassifier
+from cellpoint.data.datamodule import PointCloudDataModule
+from cellpoint.models.modules.pqae_pretrain import PQAEPretrain
+from cellpoint.models.modules.pqae_classifier import PQAEClassifier
 
 
 @hydra.main(version_base=None, config_path="./configs", config_name="main")
