@@ -15,6 +15,7 @@ class PQAEPretrain(pl.LightningModule):
         center_regressor,
         transform,
         optimizer_cfg,
+        loss_weights,
         **kwargs,
     ):
         super().__init__()
@@ -37,12 +38,10 @@ class PQAEPretrain(pl.LightningModule):
         # loss function and data augmentation
         self.transform = transform
         self.loss_fn = ChamferLoss()
-        self.optimizer_cfg = optimizer_cfg
 
-        # loss weights
-        self.lambda1 = optimizer_cfg.lambda1
-        self.lambda2 = optimizer_cfg.lambda2
-        self.lambda3 = 1 - self.lambda1 - self.lambda2
+        # optimizer config and loss weights
+        self.optimizer_cfg = optimizer_cfg
+        self.loss_weights = loss_weights
 
     def configure_optimizers(self):
         optimizer = AdamW(
@@ -163,19 +162,25 @@ class PQAEPretrain(pl.LightningModule):
 
         # 6. calculate loss
         loss_cross = self.loss_fn(
-            group1.flatten(1, 2), cross_recon1.flatten(1, 2)
-        ) + self.loss_fn(group2.flatten(1, 2), cross_recon2.flatten(1, 2))
+            group1.flatten(0, 1), cross_recon1.flatten(0, 1)
+        ) + self.loss_fn(group2.flatten(0, 1), cross_recon2.flatten(0, 1))
         loss_self = self.loss_fn(
-            group1.flatten(1, 2), self_recon1.flatten(1, 2)
-        ) + self.loss_fn(group2.flatten(1, 2), self_recon2.flatten(1, 2))
+            group1.flatten(0, 1), self_recon1.flatten(0, 1)
+        ) + self.loss_fn(group2.flatten(0, 1), self_recon2.flatten(0, 1))
         loss_center = torch.nn.functional.mse_loss(
             pred_centers1, centers1
         ) + torch.nn.functional.mse_loss(pred_centers2, centers2)
-        total_loss = (
-            loss_cross * self.lambda1
-            + loss_self * self.lambda2
-            + loss_center * self.lambda3
-        )
+
+        # 7. combine losses with weights
+        w_cross = self.loss_weights.cross
+        w_self = self.loss_weights.self
+        w_center = self.loss_weights.center
+        warmup_epochs = self.loss_weights.warmup_epochs
+        if self.current_epoch < warmup_epochs:
+            # warm-up period: focus on geometric and feature learning, pause self-reconstruction
+            w_self = 0.0
+            w_center = 1.0
+        total_loss = w_cross * loss_cross + w_self * loss_self + w_center * loss_center
 
         # Logging
         self.log_dict(
@@ -184,8 +189,14 @@ class PQAEPretrain(pl.LightningModule):
                 "train/loss_cross": loss_cross * 1000,
                 "train/loss_self": loss_self * 1000,
                 "train/loss_center": loss_center * 1000,
+                "train/w_cross": w_cross,
+                "train/w_self": w_self,
+                "train/w_center": w_center,
             },
+            on_step=True,
+            on_epoch=True,
             prog_bar=True,
+            logger=True,
         )
 
         return total_loss
