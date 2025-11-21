@@ -1,0 +1,19 @@
+_target_: cellpoint.model.FeatureExtractor
+
+grouping_cfg:
+  num_group: ${system.share.num_group}
+  group_size: ${system.share.group_size}
+
+patch_embed_cfg:
+  in_channels: 3
+  embed_dim: ${system.share.embed_dim}
+
+encoder_cfg:
+  embed_dim: ${system.share.embed_dim}
+  depth: 12
+  num_heads: 6
+  mlp_ratio: 4.0
+  qkv_bias: true
+  proj_drop: 0.0
+  attn_drop: 0.0
+  drop_path_rate: 0.1

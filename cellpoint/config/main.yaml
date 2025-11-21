@@ -1,0 +1,11 @@
+defaults:
+  - system: pretrain
+  - data: pretrain
+  - logger: [wandb]
+  - callback: pretrain
+  - hydra: default
+  - _self_           
+
+# Global settings
+project_name: "3DCellPoint"
+seed: 42

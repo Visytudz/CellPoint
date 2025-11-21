@@ -1,91 +1,84 @@
 import hydra
+import logging
 from omegaconf import DictConfig, OmegaConf
 
-from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.callbacks import (
-    ModelCheckpoint,
-    LearningRateMonitor,
-    RichProgressBar,
-)
+import torch
+from pytorch_lightning.loggers import Logger
+from pytorch_lightning import Trainer, Callback, seed_everything
 
-from cellpoint.data.datamodule import PointCloudDataModule
-from cellpoint.models.modules.pqae_pretrain import PQAEPretrain
-from cellpoint.models.modules.pqae_classifier import PQAEClassifier
+log = logging.getLogger(__name__)
+torch.set_float32_matmul_precision("medium")
 
 
-@hydra.main(version_base=None, config_path="./configs", config_name="main")
+def instantiate_callbacks(callbacks_cfg: DictConfig) -> list[Callback]:
+    callbacks = []
+    if not callbacks_cfg:
+        log.info("No callbacks config found.")
+        return callbacks
+
+    for _, cb_conf in callbacks_cfg.items():
+        if cb_conf and "_target_" in cb_conf:
+            log.info(f"Instantiating callback <{cb_conf._target_}>")
+            callbacks.append(hydra.utils.instantiate(cb_conf))
+    return callbacks
+
+
+def instantiate_loggers(logger_cfg: DictConfig) -> list[Logger]:
+    loggers = []
+    if not logger_cfg:
+        log.info("No logger config found.")
+        return loggers
+
+    for _, lg_conf in logger_cfg.items():
+        if lg_conf and "_target_" in lg_conf:
+            log.info(f"Instantiating logger <{lg_conf._target_}>")
+            loggers.append(hydra.utils.instantiate(lg_conf))
+
+    return loggers
+
+
+@hydra.main(version_base=None, config_path="config", config_name="main")
 def main(cfg: DictConfig) -> None:
-    # 1. config & seed
-    print(OmegaConf.to_yaml(cfg))
-    if "seed" in cfg.training:
-        seed_everything(cfg.training.seed, workers=True)
+    log.info(f"Run Configuration:\n{OmegaConf.to_yaml(cfg, resolve=True)}")
+    if cfg.get("seed"):
+        seed_everything(cfg.seed, workers=True, verbose=False)
+        log.info(f"Global random seed set to {cfg.seed}")
 
-    # 2. prepare data
-    dm = PointCloudDataModule(cfg)
+    # 1. data module
+    log.info(f"Instantiating DataModule <{cfg.data._target_}>")
+    dm = hydra.utils.instantiate(cfg.data)
 
-    # 3. prepare model
-    task = cfg.get("task", "pretrain")
-    print(f"🚀 Starting task: {task}")
+    # 2. system (model)
+    log.info(f"Instantiating System <{cfg.system._target_}>")
+    model = hydra.utils.instantiate(cfg.system, _recursive_=True)
 
-    if task == "pretrain":
-        model = PQAEPretrain(cfg)
-    elif task == "finetune":
-        model = PQAEClassifier(cfg)
-        if cfg.training.get("checkpoint_path"):
-            model.load_pretrained_encoder(cfg.training.checkpoint_path)
-    else:
-        raise ValueError(f"Unknown task: {task}. Supported: 'pretrain', 'finetune'")
+    # 3. initialize loggers and callbacks
+    logger = instantiate_loggers(cfg.logger)
+    callbacks = instantiate_callbacks(cfg.callback)
 
-    # 4. configure logger
-    logger = None
-    if cfg.wandb.log:
-        logger = WandbLogger(
-            project=cfg.wandb.project,
-            name=cfg.wandb.name,
-            id=cfg.wandb.id,
-            mode=cfg.wandb.mode,
-            config=OmegaConf.to_container(cfg, resolve=True),
-        )
-
-    # 5. configure callbacks
-    callbacks = [
-        LearningRateMonitor(logging_interval="step"),
-        RichProgressBar(),
-        ModelCheckpoint(
-            dirpath="checkpoints",
-            filename=(
-                "{epoch}-{step}-{train_loss:.4f}"
-                if task == "pretrain"
-                else "{epoch}-{val_acc:.4f}"
-            ),
-            monitor="train/loss" if task == "pretrain" else "val/acc",
-            mode="min" if task == "pretrain" else "max",
-            save_top_k=3,
-            save_last=True,
-        ),
-    ]
-
-    # 6. configure trainer
+    # 4. initialize Trainer
+    max_epochs = cfg.system.optimizer_cfg.get("epochs")
+    log.info(f"Initializing Trainer with max_epochs={max_epochs}")
     trainer = Trainer(
-        max_epochs=cfg.training.epochs,
+        default_root_dir=".",
+        max_epochs=max_epochs,
+        logger=logger,
+        callbacks=callbacks,
+        # hardware settings
         accelerator="auto",
         devices="auto",
         strategy="auto",
-        logger=logger,
-        callbacks=callbacks,
+        # logging settings
         log_every_n_steps=10,
-        check_val_every_n_epoch=1 if task == "finetune" else 10,  # 预训练可以少测几次
         gradient_clip_val=1.0,
-        # precision="16-mixed"   # 如果想开混合精度，取消注释
+        check_val_every_n_epoch=10,
+        # allow overrides from config
+        **cfg.get("trainer", {}),
     )
 
-    # 7. train
+    # 5. start training
+    log.info("🔥 Starting training...")
     trainer.fit(model, datamodule=dm)
-
-    # 8. test
-    # if task == "finetune":
-    #     trainer.test(model, datamodule=dm)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,19 @@
+_target_: cellpoint.model.PointDecoder
+
+positional_query_cfg:
+  embed_dim: ${system.share.embed_dim}
+  num_heads: ${system.share.decoder_num_heads}
+  qkv_bias: true
+  proj_drop: 0.0
+  attn_drop: 0.0
+
+reconstruction_head_cfg:
+  embed_dim: ${system.share.embed_dim}
+  depth: 4
+  num_heads: ${system.share.decoder_num_heads}
+  group_size: ${system.share.group_size}
+  mlp_ratio: 4.0
+  qkv_bias: true
+  proj_drop: 0.0
+  attn_drop: 0.0
+  drop_path_rate: 0.0

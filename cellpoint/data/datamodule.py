@@ -1,79 +1,93 @@
-import hydra
+from typing import Dict, Union
+from omegaconf import DictConfig, ListConfig
+
 import pytorch_lightning as pl
-from omegaconf import DictConfig
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader, ConcatDataset, Dataset
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 class PointCloudDataModule(pl.LightningDataModule):
-    def __init__(self, cfg: DictConfig):
+    def __init__(
+        self,
+        train_datasets: Union[Dict[str, Dataset], list[Dataset]] = None,
+        val_datasets: Union[Dict[str, Dataset], list[Dataset]] = None,
+        test_datasets: Union[Dict[str, Dataset], list[Dataset]] = None,
+        batch_size: int = 32,
+        num_workers: int = 4,
+        pin_memory: bool = True,
+    ):
         super().__init__()
-        self.cfg = cfg
-        self.batch_size = cfg.training.batch_size
-        self.num_workers = cfg.training.num_workers
-        self.task_type = cfg.task
+        self.save_hyperparameters(
+            ignore=["train_datasets", "val_datasets", "test_datasets"]
+        )
 
-        self.train_dataset = None
-        self.val_dataset = None
-        self.test_dataset = None
+        self.train_ds_list = self._to_list(train_datasets)
+        self.val_ds_list = self._to_list(val_datasets)
+        self.test_ds_list = self._to_list(test_datasets)
 
-    def _build_dataset(self, splits: str = None):
-        """Builds and returns a dataset for the given splits."""
-        datasets = []
-        for key in self.cfg.dataset.selected:
-            if key not in self.cfg.dataset.available:
-                raise ValueError(
-                    f"Dataset '{key}' selected but not defined in available datasets."
-                )
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.pin_memory = pin_memory
 
-            ds_cfg = self.cfg.dataset.available[key]
-            splits = splits if splits is not None else self.cfg.get("splits")
-            dataset = hydra.utils.instantiate(ds_cfg, splits=splits)
-            datasets.append(dataset)
+    def _to_list(self, datasets) -> list[Dataset]:
+        if not datasets:
+            return []
+        if isinstance(datasets, (dict, DictConfig)):
+            return list(datasets.values())
+        if isinstance(datasets, (list, ListConfig)):
+            return list(datasets)
+        return [datasets]
 
-        if len(datasets) == 0:
-            raise ValueError("No datasets selected in config.")
-
+    def _concat(self, datasets: list[Dataset]):
+        if not datasets:
+            return None
         return ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
 
     def setup(self, stage: str = None):
-        """Sets up datasets for different stages: 'fit' and 'test'."""
         if stage == "fit" or stage is None:
-            if self.task_type == "pretrain":
-                self.train_dataset = self._build_dataset()
-            elif self.task_type == "finetune":
-                self.train_dataset = self._build_dataset(["train"])
-                self.val_dataset = self._build_dataset(["val"])
-        if stage == "test":
-            self.test_dataset = self._build_dataset(["test"])
+            total_train = sum(len(ds) for ds in self.train_ds_list)
+            logger.info(
+                f"🔥 [DataModule] Train datasets loaded: {len(self.train_ds_list)} sets, Total samples: {total_train}"
+            )
 
     def train_dataloader(self):
+        dataset = self._concat(self.train_ds_list)
+        if not dataset:
+            return None
         return DataLoader(
-            self.train_dataset,
+            dataset,
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            pin_memory=True,
+            pin_memory=self.pin_memory,
             drop_last=True,
+            persistent_workers=self.num_workers > 0,
         )
 
     def val_dataloader(self):
-        if self.val_dataset:
-            return DataLoader(
-                self.val_dataset,
-                batch_size=self.batch_size,
-                shuffle=False,
-                num_workers=self.num_workers,
-                pin_memory=True,
-            )
-        return None
+        dataset = self._concat(self.val_ds_list)
+        if not dataset:
+            return None
+        return DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=self.num_workers > 0,
+        )
 
     def test_dataloader(self):
-        if self.test_dataset:
-            return DataLoader(
-                self.test_dataset,
-                batch_size=self.batch_size,
-                shuffle=False,
-                num_workers=self.num_workers,
-                pin_memory=True,
-            )
-        return None
+        dataset = self._concat(self.test_ds_list)
+        if not dataset:
+            return None
+        return DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )

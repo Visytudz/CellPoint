@@ -1,0 +1,7 @@
+intrA:
+  _target_: "cellpoint.data.HDF5Dataset"
+  path: "/home/verve/Project/research/CellPoint/datasets/intrA"
+  splits: ["train", "val", "test"]
+  num_points: null
+  normolize: true
+  class_choice: null

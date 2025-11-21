@@ -1,0 +1,7 @@
+modelnet40:
+  _target_: "cellpoint.data.HDF5Dataset"
+  path: "/home/verve/Project/research/CellPoint/datasets/modelnet40"
+  splits: ["train", "val", "test"]
+  num_points: null
+  normalize: true
+  class_choice: null

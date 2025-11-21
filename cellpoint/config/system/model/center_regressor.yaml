@@ -1,0 +1,4 @@
+_target_: cellpoint.model.CenterRegressor
+
+embed_dim: ${system.share.embed_dim}
+num_group: ${system.share.num_group}

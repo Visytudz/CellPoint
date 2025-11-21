@@ -1,0 +1,191 @@
+import torch
+from torch.optim import AdamW
+import pytorch_lightning as pl
+from torch.optim.lr_scheduler import CosineAnnealingLR
+
+from cellpoint.loss import ChamferLoss
+
+
+class PQAEPretrain(pl.LightningModule):
+    def __init__(
+        self,
+        extractor,
+        view_generator,
+        decoder,
+        center_regressor,
+        transform,
+        optimizer_cfg,
+        **kwargs,
+    ):
+        super().__init__()
+        self.save_hyperparameters(
+            ignore=[
+                "extractor",
+                "view_generator",
+                "decoder",
+                "center_regressor",
+                "transform",
+            ]
+        )
+
+        # prepare model components
+        self.view_generator = view_generator
+        self.extractor = extractor
+        self.center_regressor = center_regressor
+        self.decoder = decoder
+
+        # loss function and data augmentation
+        self.transform = transform
+        self.loss_fn = ChamferLoss()
+        self.optimizer_cfg = optimizer_cfg
+
+        # loss weights
+        self.lambda1 = optimizer_cfg.lambda1
+        self.lambda2 = optimizer_cfg.lambda2
+        self.lambda3 = 1 - self.lambda1 - self.lambda2
+
+    def configure_optimizers(self):
+        optimizer = AdamW(
+            self.parameters(),
+            lr=self.optimizer_cfg.lr,
+            weight_decay=self.optimizer_cfg.weight_decay,
+        )
+        scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=self.optimizer_cfg.epochs,
+            eta_min=self.optimizer_cfg.min_lr,
+        )
+        return [optimizer], [scheduler]
+
+    def self_reconstruction(
+        self, cls_feature: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Self reconstruction from cls token to patch.
+
+        Parameters
+        ----------
+        cls_feature : torch.Tensor
+            The global feature of the point cloud. Shape: (B, 1, C).
+
+        Returns
+        -------
+        tuple[torch.Tensor, torch.Tensor]
+            The reconstructed point cloud patches and the predicted centers.
+            Shape: (B, P, K, 3), (B, P, 3).
+        """
+        # prepare input
+        B = cls_feature.shape[0]
+        pred_centers = self.center_regressor(cls_feature)  # (B, P, 3)
+        num_patches = pred_centers.shape[1]
+        source_tokens = cls_feature.expand(-1, num_patches, -1)  # (B, P, C)
+        relative_center = torch.zeros(B, 3, device=self.device)  # (B, 3)
+
+        # reconstruct from cls token to patch
+        self_recon = self.decoder(
+            source_tokens=source_tokens,
+            target_centers=pred_centers,
+            relative_center=relative_center,
+        )  # (B, P, K, 3)
+
+        return self_recon, pred_centers
+
+    def cross_reconstruction(
+        self,
+        patch_features1: torch.Tensor,
+        patch_features2: torch.Tensor,
+        centers1: torch.Tensor,
+        centers2: torch.Tensor,
+        relative_center_1_2: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Cross reconstruction from view1 to view2 and vice versa.
+
+        Parameters
+        ----------
+        patch_features1 : torch.Tensor
+            The patch features of the first view. Shape: (B, P, C).
+        patch_features2 : torch.Tensor
+            The patch features of the second view. Shape: (B, P, C).
+        centers1 : torch.Tensor
+            The centers of the first view. Shape: (B, P, 3).
+        centers2 : torch.Tensor
+            The centers of the second view. Shape: (B, P, 3).
+        relative_center_1_2 : torch.Tensor
+            The relative center of the first view to the second view. Shape: (B, 3).
+
+        Returns
+        -------
+        tuple[torch.Tensor, torch.Tensor]
+            The reconstructed point cloud patches and the predicted centers.
+            Shape: (B, P, K, 3), (B, P, K, 3).
+        """
+        # use view2 to reconstruct view1
+        cross_recon1 = self.decoder(
+            source_tokens=patch_features2,
+            target_centers=centers1,
+            relative_center=-relative_center_1_2,
+        )  # (B, P, K, 3)
+
+        # use view1 to reconstruct view2
+        cross_recon2 = self.decoder(
+            source_tokens=patch_features1,
+            target_centers=centers2,
+            relative_center=relative_center_1_2,
+        )  # (B, P, K, 3)
+
+        return cross_recon1, cross_recon2
+
+    def training_step(self, batch, batch_idx):
+        # 1. get points and data agumentation
+        pts = batch["points"]  # (B, N, 3)
+        pts = self.transform(pts)
+
+        # 2. generate view pairs and their relative position
+        relative_center_1_2, (view1_rot, view1), (view2_rot, view2) = (
+            self.view_generator(pts)
+        )
+
+        # 3. extract features
+        # cls: (B, 1, C), patch: (B, P, C), centers: (B, P, 3), group: (B, P, K, 3)
+        cls_features1, patch_features1, centers1, group1 = self.extractor(view1_rot)
+        cls_features2, patch_features2, centers2, group2 = self.extractor(view2_rot)
+
+        # 4. cross reconstruction
+        cross_recon1, cross_recon2 = self.cross_reconstruction(
+            patch_features1, patch_features2, centers1, centers2, relative_center_1_2
+        )  # (B, P, K, 3)
+
+        # 5. self reconstruction
+        # recon: (B, P, K, 3), pred_centers: (B, P, 3)
+        self_recon1, pred_centers1 = self.self_reconstruction(cls_features1)
+        self_recon2, pred_centers2 = self.self_reconstruction(cls_features2)
+
+        # 6. calculate loss
+        loss_cross = self.loss_fn(
+            group1.flatten(1, 2), cross_recon1.flatten(1, 2)
+        ) + self.loss_fn(group2.flatten(1, 2), cross_recon2.flatten(1, 2))
+        loss_self = self.loss_fn(
+            group1.flatten(1, 2), self_recon1.flatten(1, 2)
+        ) + self.loss_fn(group2.flatten(1, 2), self_recon2.flatten(1, 2))
+        loss_center = torch.nn.functional.mse_loss(
+            pred_centers1, centers1
+        ) + torch.nn.functional.mse_loss(pred_centers2, centers2)
+        total_loss = (
+            loss_cross * self.lambda1
+            + loss_self * self.lambda2
+            + loss_center * self.lambda3
+        )
+
+        # Logging
+        self.log_dict(
+            {
+                "train/loss": total_loss * 1000,
+                "train/loss_cross": loss_cross * 1000,
+                "train/loss_self": loss_self * 1000,
+                "train/loss_center": loss_center * 1000,
+            },
+            prog_bar=True,
+        )
+
+        return total_loss

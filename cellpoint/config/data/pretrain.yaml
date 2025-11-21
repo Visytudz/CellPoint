@@ -1,0 +1,8 @@
+defaults:
+  - dataset@train_datasets: ["shapenet55_34"]
+  - _self_
+
+_target_: cellpoint.data.PointCloudDataModule
+
+batch_size: 32
+num_workers: 4

@@ -1,0 +1,30 @@
+job:
+  chdir: true
+run:
+  dir: outputs/${hydra:job.name}
+job_logging:
+  version: 1
+  formatters:
+    simple:
+      format: '[%(asctime)s][%(levelname)s] - %(message)s'
+    detailed:
+      format: '[%(asctime)s][%(levelname)s][%(filename)s:%(lineno)d] - %(message)s'
+  
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: simple
+      stream: ext://sys.stdout
+      level: INFO
+    
+    file:
+      class: logging.FileHandler
+      formatter: detailed
+      filename: ${hydra.runtime.output_dir}/${hydra.job.name}.log
+      level: INFO
+
+  root:
+    level: DEBUG
+    handlers: [console, file]
+
+  disable_existing_loggers: false

@@ -1,0 +1,24 @@
+defaults:
+  - /model/share@share
+  - /model/backbone@backbone
+  - /model/head@head
+  - _self_
+
+_target_: cellpoint.model.PQAEClassifier
+
+optimizer_cfg:
+  lr: 0.001           # Head 的学习率
+  encoder_lr: 1e-5    # Backbone 的学习率 (差分学习率)
+  weight_decay: 0.05
+  epochs: 200
+  # 冻结 Encoder 的 epoch 数
+  unfreeze_encoder_epoch: 10
+
+# 预训练权重路径 (可选)
+checkpoint_path: null 
+
+augmentations:
+  rotate: true
+  scale_and_translate: false
+  jitter: false
+  fps: false # 分类通常不重新采样，或者在 Dataset 里做

@@ -1,0 +1,9 @@
+wandb:
+  _target_: pytorch_lightning.loggers.wandb.WandbLogger
+
+  project: ${project_name}
+  name: null               # Wandb experiment name, null 
+  save_dir: "."            # local save directory for artifacts
+  id: null                 # wandb run id (for resuming)
+  log_model: false         # if true, uploads pytorch models as artifacts
+  mode: "offline"           # "online", "offline", or "disabled"

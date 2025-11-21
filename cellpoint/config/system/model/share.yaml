@@ -1,0 +1,5 @@
+# Shared model configuration
+num_group: 64
+group_size: 32
+embed_dim: 384
+decoder_num_heads: 6

@@ -1,0 +1,6 @@
+shapenet55_34:
+  _target_: "cellpoint.data.ShapeNetDataset"
+  pc_path: "/home/verve/Project/research/CellPoint/datasets/shapenet55-34/pcl"
+  split_path: "/home/verve/Project/research/CellPoint/datasets/shapenet55-34/splits"
+  splits: ["train", "test"]
+  num_points: null

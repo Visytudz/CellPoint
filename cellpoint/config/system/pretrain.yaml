@@ -1,0 +1,18 @@
+defaults:
+  - model/share@share
+  - model/view_generator@view_generator
+  - model/extractor@extractor
+  - model/center_regressor@center_regressor
+  - model/decoder@decoder
+  - transform/pretrain@transform
+  - _self_
+
+_target_: cellpoint.model.PQAEPretrain
+
+optimizer_cfg:
+  lr: 0.0005
+  min_lr: 1e-6
+  epochs: 300
+  weight_decay: 0.05
+  lambda1: 0.6
+  lambda2: 0.2

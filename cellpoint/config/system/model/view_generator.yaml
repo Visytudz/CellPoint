@@ -1,0 +1,5 @@
+_target_: cellpoint.model.PointViewGenerator
+
+min_crop_rate: 0.6
+max_crop_rate: 1.0
+random_rotate: true
