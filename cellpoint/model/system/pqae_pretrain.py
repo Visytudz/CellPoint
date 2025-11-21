@@ -2,8 +2,11 @@ import torch
 from torch.optim import AdamW
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import CosineAnnealingLR
+import logging
 
 from cellpoint.loss import ChamferLoss
+
+log = logging.getLogger(__name__)
 
 
 class PQAEPretrain(pl.LightningModule):
@@ -200,3 +203,21 @@ class PQAEPretrain(pl.LightningModule):
         )
 
         return total_loss
+
+    def on_train_epoch_end(self):
+        """Log epoch summary"""
+        epoch = self.current_epoch
+        # Get epoch metrics from trainer's logged metrics
+        metrics = self.trainer.callback_metrics
+        loss_epoch = metrics.get("train/loss_epoch", 0)
+        loss_cross = metrics.get("train/loss_cross_epoch", 0)
+        loss_self = metrics.get("train/loss_self_epoch", 0)
+        loss_center = metrics.get("train/loss_center_epoch", 0)
+
+        log.info(
+            f"Epoch {epoch} finished | "
+            f"Loss: {loss_epoch:.4f} | "
+            f"Cross: {loss_cross:.4f} | "
+            f"Self: {loss_self:.4f} | "
+            f"Center: {loss_center:.4f}"
+        )
