@@ -3,6 +3,7 @@ defaults:
   - data: pretrain
   - logger: [wandb]
   - callback: pretrain
+  - trainer: default
   - hydra: default
   - _self_           
 
