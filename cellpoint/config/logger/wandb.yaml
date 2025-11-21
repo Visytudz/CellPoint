@@ -7,3 +7,4 @@ wandb:
   id: null                 # wandb run id (for resuming)
   log_model: false         # if true, uploads pytorch models as artifacts
   mode: "offline"           # "online", "offline", or "disabled"
+  resume: "allow"        # "allow", "must", or "never"

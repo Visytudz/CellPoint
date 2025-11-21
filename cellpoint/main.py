@@ -78,7 +78,7 @@ def main(cfg: DictConfig) -> None:
 
     # 5. start training
     log.info("🔥 Starting training...")
-    trainer.fit(model, datamodule=dm)
+    trainer.fit(model, datamodule=dm, ckpt_path=cfg.get("ckpt_path", None))
 
 
 if __name__ == "__main__":
