@@ -167,9 +167,9 @@ class PQAEPretrain(pl.LightningModule):
         loss_self = self.loss_fn(
             group1.flatten(0, 1), self_recon1.flatten(0, 1)
         ) + self.loss_fn(group2.flatten(0, 1), self_recon2.flatten(0, 1))
-        loss_center = torch.nn.functional.mse_loss(
-            pred_centers1, centers1
-        ) + torch.nn.functional.mse_loss(pred_centers2, centers2)
+        loss_center = self.loss_fn(centers1, pred_centers1) + self.loss_fn(
+            centers2, pred_centers2
+        )
 
         # 7. combine losses with weights
         w_cross = self.loss_weights.cross
