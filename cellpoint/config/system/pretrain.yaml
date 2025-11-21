@@ -10,9 +10,13 @@ defaults:
 _target_: cellpoint.model.PQAEPretrain
 
 optimizer_cfg:
-  lr: 0.0005
+  lr: 5e-4
   min_lr: 1e-6
-  epochs: 300
+  epochs: 200
   weight_decay: 0.05
-  lambda1: 0.6
-  lambda2: 0.2
+
+loss_weights:
+  cross: 1.0      # cross reconstruction, core task
+  self: 0.5       # self reconstruction, auxiliary task
+  center: 0.5     # center regression, geometric constraint
+  warmup_epochs: 20  # warm-up period for center loss
