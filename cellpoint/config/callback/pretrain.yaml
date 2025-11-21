@@ -1,8 +1,8 @@
 model_checkpoint:
   _target_: pytorch_lightning.callbacks.ModelCheckpoint
   dirpath: "checkpoints"
-  filename: "{epoch:03d}-{step}-{train/loss:.4f}"
-  monitor: "train/loss"
+  filename: "{epoch:03d}-{step}-{train/loss_epoch:.4f}"
+  monitor: "train/loss_epoch"
   mode: "min"
   save_top_k: 3
   save_last: true
