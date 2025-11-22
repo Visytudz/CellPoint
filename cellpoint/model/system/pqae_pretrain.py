@@ -15,7 +15,7 @@ class PQAEPretrain(pl.LightningModule):
         extractor,
         view_generator,
         decoder,
-        center_regressor,
+        cls_to_patch,
         transform,
         optimizer_cfg,
         loss_weights,
@@ -27,7 +27,7 @@ class PQAEPretrain(pl.LightningModule):
                 "extractor",
                 "view_generator",
                 "decoder",
-                "center_regressor",
+                "cls_to_patch",
                 "transform",
             ]
         )
@@ -35,7 +35,7 @@ class PQAEPretrain(pl.LightningModule):
         # prepare model components
         self.view_generator = view_generator
         self.extractor = extractor
-        self.center_regressor = center_regressor
+        self.cls_to_patch = cls_to_patch
         self.decoder = decoder
 
         # loss function and data augmentation
@@ -76,16 +76,14 @@ class PQAEPretrain(pl.LightningModule):
             The reconstructed point cloud patches and the predicted centers.
             Shape: (B, P, K, 3), (B, P, 3).
         """
-        # prepare input
+        # generate patch features and predict centers
         B = cls_feature.shape[0]
-        pred_centers = self.center_regressor(cls_feature)  # (B, P, 3)
-        num_patches = pred_centers.shape[1]
-        source_tokens = cls_feature.expand(-1, num_patches, -1)  # (B, P, C)
+        patch_features, pred_centers = self.cls_to_patch(cls_feature)  # (B, P, C), (B, P, 3)
         relative_center = torch.zeros(B, 3, device=self.device)  # (B, 3)
 
-        # reconstruct from cls token to patch
+        # reconstruct from patch features
         self_recon = self.decoder(
-            source_tokens=source_tokens,
+            source_tokens=patch_features,
             target_centers=pred_centers,
             relative_center=relative_center,
         )  # (B, P, K, 3)

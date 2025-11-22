@@ -2,7 +2,7 @@ from .system.pqae_pretrain import PQAEPretrain
 from .system.pqae_finetune import PQAEFinetune
 from .component.pqae.view_generator import PointViewGenerator
 from .component.pqae.extractor import FeatureExtractor
-from .component.pqae.center_regressor import CenterRegressor
+from .component.pqae.cls_to_patch import ClsToPatch
 from .component.pqae.decoder import PointDecoder
 from .component.pqae.classification_head import ClassificationHead
 
@@ -11,7 +11,7 @@ __all__ = [
     "PQAEFinetune",
     "PointViewGenerator",
     "FeatureExtractor",
-    "CenterRegressor",
+    "ClsToPatch",
     "PointDecoder",
     "ClassificationHead",
 ]
