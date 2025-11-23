@@ -121,6 +121,7 @@ class PQAEFinetune(pl.LightningModule):
             on_step=True,
             on_epoch=True,
             prog_bar=True,
+            batch_size=pts.size(0),
         )
 
         return loss
@@ -139,6 +140,7 @@ class PQAEFinetune(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             prog_bar=True,
+            batch_size=pts.size(0),
         )
 
     def test_step(self, batch, batch_idx):
@@ -155,4 +157,33 @@ class PQAEFinetune(pl.LightningModule):
             on_step=False,
             on_epoch=True,
             prog_bar=True,
+            batch_size=pts.size(0),
+        )
+
+    def on_train_epoch_end(self):
+        """Log epoch summary"""
+        epoch = self.current_epoch
+        # Get epoch metrics from trainer's logged metrics
+        metrics = self.trainer.callback_metrics
+        loss_epoch = metrics.get("train/loss_epoch", 0)
+        acc_epoch = metrics.get("train/acc_epoch", 0)
+
+        logger.info(
+            f"Epoch {epoch} finished | "
+            f"Loss: {loss_epoch:.4f} | "
+            f"Acc: {acc_epoch:.4f}"
+        )
+
+    def on_validation_epoch_end(self):
+        """Log validation epoch summary"""
+        epoch = self.current_epoch
+        # Get epoch metrics from trainer's logged metrics
+        metrics = self.trainer.callback_metrics
+        loss_epoch = metrics.get("val/loss", 0)
+        acc_epoch = metrics.get("val/acc", 0)
+
+        logger.info(
+            f"Epoch {epoch} validation finished | "
+            f"Loss: {loss_epoch:.4f} | "
+            f"Acc: {acc_epoch:.4f}"
         )
