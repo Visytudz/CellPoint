@@ -113,9 +113,14 @@ class PQAEFinetune(pl.LightningModule):
         loss = self.loss_fn(logits, labels)
 
         self.train_acc(logits, labels)
-        self.log("train/loss", loss, prog_bar=True)
         self.log(
-            "train/acc", self.train_acc, on_step=True, on_epoch=True, prog_bar=True
+            {
+                "train/loss": loss,
+                "train/acc": self.train_acc,
+            },
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
         )
 
         return loss
@@ -126,14 +131,14 @@ class PQAEFinetune(pl.LightningModule):
         loss = self.loss_fn(logits, labels)
 
         self.val_acc(logits, labels)
-        self.log("val/loss", loss, sync_dist=True)
         self.log(
-            "val/acc",
-            self.val_acc,
-            on_step=True,
+            {
+                "val/loss": loss,
+                "val/acc": self.val_acc,
+            },
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
-            sync_dist=True,
         )
 
     def test_step(self, batch, batch_idx):
@@ -142,12 +147,12 @@ class PQAEFinetune(pl.LightningModule):
         loss = self.loss_fn(logits, labels)
 
         self.val_acc(logits, labels)
-        self.log("test/loss", loss, sync_dist=True)
         self.log(
-            "test/acc",
-            self.val_acc,
-            on_step=True,
+            {
+                "test/loss": loss,
+                "test/acc": self.val_acc,
+            },
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
-            sync_dist=True,
         )
