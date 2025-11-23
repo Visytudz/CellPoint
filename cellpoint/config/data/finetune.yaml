@@ -1,9 +1,10 @@
 defaults:
-  - dataset@train_datasets: [modelnet_train]
-  - dataset@val_datasets: [modelnet_val]
+  - dataset@train_datasets: [modelnet40_train]
+  - dataset@val_datasets: [modelnet40_val]
+  - dataset@test_datasets: [modelnet40_test]
   - _self_
 
 _target_: cellpoint.data.PointCloudDataModule
 
-batch_size: 16
+batch_size: 256
 num_workers: 4

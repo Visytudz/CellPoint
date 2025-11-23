@@ -1,0 +1,16 @@
+_target_: cellpoint.utils.transform.Compose
+transforms:
+  - _target_: cellpoint.utils.transform.PointcloudFarthestPointSampling
+    num_points: 2048
+    expand_ratio: 1.1
+
+  - _target_: cellpoint.utils.transform.PointcloudRotate
+
+  # - _target_: cellpoint.utils.transform.PointcloudJitter
+  #   sigma: 0.01
+  #   clip: 0.05
+    
+  # - _target_: cellpoint.utils.transform.PointcloudScaleAndTranslate
+  #   scale_low: 0.8
+  #   scale_high: 1.2
+  #   translate_range: 0.1

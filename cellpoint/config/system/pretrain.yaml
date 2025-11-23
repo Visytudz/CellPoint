@@ -20,3 +20,5 @@ loss_weights:
   self: 0.5       # self reconstruction, auxiliary task
   center: 0.5     # center regression, geometric constraint
   warmup_epochs: 20  # warm-up period for center loss
+
+ckpt_path: null

@@ -1,0 +1,3 @@
+_target_: torchmetrics.Accuracy
+task: multiclass
+num_classes: ${system.share.num_classes}

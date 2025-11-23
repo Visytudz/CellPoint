@@ -2,5 +2,5 @@ _target_: cellpoint.model.ClassificationHead
 
 embed_dim: ${system.share.embed_dim}
 hidden_dim: 256
-num_classes: 40
+num_classes: ${system.share.num_classes}
 dropout: 0.5

@@ -1,11 +1,8 @@
 import torch
 import torch.nn as nn
-import torchmetrics
 import pytorch_lightning as pl
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-
-from cellpoint.utils.transform import Compose
 
 from logging import getLogger
 
@@ -17,26 +14,26 @@ class PQAEFinetune(pl.LightningModule):
         self,
         extractor,
         classification_head,
+        transform,
+        metrics,
         optimizer_cfg,
+        **kwargs,
     ):
         super().__init__()
-        self.save_hyperparameters()
-        self.num_classes = cfg.model.params.classifier_head.num_classes
+        self.save_hyperparameters(
+            ignore=["extractor", "classification_head", "transform", "metrics"]
+        )
 
         # prepare model components
         self.extractor = extractor
         self.classification_head = classification_head
 
-        # loss, transform and metric
+        # data augmentation, optimizer config, loss and metrics
+        self.transform = transform
         self.optimizer_cfg = optimizer_cfg
         self.loss_fn = nn.CrossEntropyLoss()
-        self.train_transform = Compose.from_cfg(cfg.training.augmentations)
-        self.train_acc = torchmetrics.Accuracy(
-            task="multiclass", num_classes=self.num_classes
-        )
-        self.val_acc = torchmetrics.Accuracy(
-            task="multiclass", num_classes=self.num_classes
-        )
+        self.train_acc = metrics.train_acc
+        self.val_acc = metrics.val_acc
 
         # Encoder Freeze Control
         self.encoder_frozen = False
@@ -67,7 +64,7 @@ class PQAEFinetune(pl.LightningModule):
             return
 
         logger.info(f"Loading pretrained encoder from {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
         state_dict = checkpoint["state_dict"]
         new_state_dict = {}
         for k, v in state_dict.items():
@@ -80,7 +77,7 @@ class PQAEFinetune(pl.LightningModule):
     def on_train_epoch_start(self):
         """control encoder freeze/unfreeze"""
         current_epoch = self.current_epoch
-        unfreeze_epoch = self.cfg.training.get("unfreeze_extractor_epoch", 0)
+        unfreeze_epoch = self.optimizer_cfg.unfreeze_extractor_epoch
 
         if current_epoch < unfreeze_epoch and not self.encoder_frozen:
             logger.info(f"Epoch {current_epoch}: Freezing encoder.")
@@ -111,14 +108,14 @@ class PQAEFinetune(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         pts, labels = batch["points"], batch["label"].squeeze()
-        pts = self.train_transform(pts)
+        pts = self.transform(pts)
         logits = self(pts)
         loss = self.loss_fn(logits, labels)
 
         self.train_acc(logits, labels)
         self.log("train/loss", loss, prog_bar=True)
         self.log(
-            "train/acc", self.train_acc, on_step=False, on_epoch=True, prog_bar=True
+            "train/acc", self.train_acc, on_step=True, on_epoch=True, prog_bar=True
         )
 
         return loss
@@ -133,7 +130,23 @@ class PQAEFinetune(pl.LightningModule):
         self.log(
             "val/acc",
             self.val_acc,
-            on_step=False,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+        )
+
+    def test_step(self, batch, batch_idx):
+        pts, labels = batch["points"], batch["label"].squeeze()
+        logits = self(pts)
+        loss = self.loss_fn(logits, labels)
+
+        self.val_acc(logits, labels)
+        self.log("test/loss", loss, sync_dist=True)
+        self.log(
+            "test/acc",
+            self.val_acc,
+            on_step=True,
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,

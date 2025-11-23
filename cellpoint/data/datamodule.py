@@ -52,6 +52,11 @@ class PointCloudDataModule(pl.LightningDataModule):
             logger.info(
                 f"🔥 [DataModule] Train datasets loaded: {len(self.train_ds_list)} sets, Total samples: {total_train}"
             )
+            if self.val_ds_list:
+                total_val = sum(len(ds) for ds in self.val_ds_list)
+                logger.info(
+                    f"📊 [DataModule] Val datasets loaded: {len(self.val_ds_list)} sets, Total samples: {total_val}"
+                )
 
     def train_dataloader(self):
         dataset = self._concat(self.train_ds_list)

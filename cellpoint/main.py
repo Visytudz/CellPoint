@@ -37,7 +37,7 @@ def instantiate_loggers(logger_cfg: DictConfig) -> list[Logger]:
     return loggers
 
 
-@hydra.main(version_base=None, config_path="config", config_name="main")
+@hydra.main(version_base=None, config_path="config", config_name=None)
 def main(cfg: DictConfig) -> None:
     log.info(f"Run Configuration:\n{OmegaConf.to_yaml(cfg, resolve=True)}")
     if cfg.get("seed"):
@@ -51,6 +51,10 @@ def main(cfg: DictConfig) -> None:
     # 2. system (model)
     log.info(f"Instantiating System <{cfg.system._target_}>")
     model = hydra.utils.instantiate(cfg.system, _recursive_=True)
+    # load pretrained encoder if specified
+    if hasattr(model, "load_pretrained_encoder"):
+        pretrained_path = cfg.system.get("extractor_ckpt_path", None)
+        model.load_pretrained_encoder(pretrained_path)
 
     # 3. initialize loggers and callbacks
     logger = instantiate_loggers(cfg.logger)
@@ -78,7 +82,12 @@ def main(cfg: DictConfig) -> None:
 
     # 5. start training
     log.info("🔥 Starting training...")
-    trainer.fit(model, datamodule=dm, ckpt_path=cfg.get("ckpt_path", None))
+    trainer.fit(model, datamodule=dm, ckpt_path=cfg.get("cfg.system.ckpt_path", None))
+
+    # 6. test after training (if test data available)
+    if dm.test_ds_list:
+        log.info("🧪 Starting testing with best checkpoint...")
+        trainer.test(model, datamodule=dm, ckpt_path="best")
 
 
 if __name__ == "__main__":

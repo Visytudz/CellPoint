@@ -1,13 +1,12 @@
 defaults:
-  - system: pretrain
-  - data: pretrain
+  - system: finetune
+  - data: finetune
   - logger: [wandb]
-  - callback: pretrain
+  - callback: finetune
   - trainer: default
   - hydra: default
   - _self_           
 
 # Global settings
 project_name: "3DCellPoint"
-ckpt_path: null
 seed: 42

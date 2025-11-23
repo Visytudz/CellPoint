@@ -6,7 +6,7 @@ import logging
 
 from cellpoint.loss import ChamferLoss
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class PQAEPretrain(pl.LightningModule):
@@ -212,7 +212,7 @@ class PQAEPretrain(pl.LightningModule):
         loss_self = metrics.get("train/loss_self_epoch", 0)
         loss_center = metrics.get("train/loss_center_epoch", 0)
 
-        log.info(
+        logger.info(
             f"Epoch {epoch} finished | "
             f"Loss: {loss_epoch:.4f} | "
             f"Cross: {loss_cross:.4f} | "
