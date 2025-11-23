@@ -113,7 +113,7 @@ class PQAEFinetune(pl.LightningModule):
         loss = self.loss_fn(logits, labels)
 
         self.train_acc(logits, labels)
-        self.log(
+        self.log_dict(
             {
                 "train/loss": loss,
                 "train/acc": self.train_acc,
@@ -131,7 +131,7 @@ class PQAEFinetune(pl.LightningModule):
         loss = self.loss_fn(logits, labels)
 
         self.val_acc(logits, labels)
-        self.log(
+        self.log_dict(
             {
                 "val/loss": loss,
                 "val/acc": self.val_acc,
@@ -147,7 +147,7 @@ class PQAEFinetune(pl.LightningModule):
         loss = self.loss_fn(logits, labels)
 
         self.val_acc(logits, labels)
-        self.log(
+        self.log_dict(
             {
                 "test/loss": loss,
                 "test/acc": self.val_acc,
