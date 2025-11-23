@@ -5,3 +5,4 @@ modelnet40:
   num_points: null
   normalize: true
   class_choice: null
+  load_to_ram: true
