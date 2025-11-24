@@ -3,8 +3,11 @@ from torch.optim import AdamW
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import logging
+from pathlib import Path
+import numpy as np
 
 from cellpoint.loss import ChamferLoss
+from cellpoint.utils.io import save_ply
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +22,7 @@ class PQAEPretrain(pl.LightningModule):
         transform,
         optimizer_cfg,
         loss_weights,
+        save_dir=None,
         **kwargs,
     ):
         super().__init__()
@@ -45,6 +49,9 @@ class PQAEPretrain(pl.LightningModule):
         # optimizer config and loss weights
         self.optimizer_cfg = optimizer_cfg
         self.loss_weights = loss_weights
+
+        # save directory for test results
+        self.save_dir = save_dir
 
     def configure_optimizers(self):
         optimizer = AdamW(
@@ -247,8 +254,8 @@ class PQAEPretrain(pl.LightningModule):
         # 1. Get input points
         pts = batch["points"]  # (B, N, 3)
         input_points = pts.clone()
-        label = batch[label]
-        id = batch["id"]
+        label = batch.get("label", None)
+        id = batch.get("id", None)
 
         # 2. Generate view pairs and their relative position
         relative_center_1_2, (view1_rot, view1), (view2_rot, view2) = (
@@ -268,6 +275,19 @@ class PQAEPretrain(pl.LightningModule):
         self_recon1, pred_centers1 = self.self_reconstruction(cls_features1)
         self_recon2, pred_centers2 = self.self_reconstruction(cls_features2)
 
+        # 6. Add centers to reconstructions to align patches in global space
+        # Add real centers: (B, P, K, 3) + (B, P, 1, 3) -> (B, P, K, 3)
+        group1_with_centers = group1 + centers1.unsqueeze(2)
+        group2_with_centers = group2 + centers2.unsqueeze(2)
+        cross_recon1_with_centers = cross_recon1 + centers1.unsqueeze(2)
+        cross_recon2_with_centers = cross_recon2 + centers2.unsqueeze(2)
+
+        # Add both real and predicted centers to self_recon
+        self_recon1_with_real_centers = self_recon1 + centers1.unsqueeze(2)
+        self_recon2_with_real_centers = self_recon2 + centers2.unsqueeze(2)
+        self_recon1_with_pred_centers = self_recon1 + pred_centers1.unsqueeze(2)
+        self_recon2_with_pred_centers = self_recon2 + pred_centers2.unsqueeze(2)
+
         # Return all intermediate point clouds
         return {
             "input_points": input_points,
@@ -275,17 +295,122 @@ class PQAEPretrain(pl.LightningModule):
             "view2": view2,
             "view1_rot": view1_rot,
             "view2_rot": view2_rot,
-            "group1": group1,
-            "group2": group2,
+            "group1": group1_with_centers,
+            "group2": group2_with_centers,
             "centers1": centers1,
             "centers2": centers2,
-            "cross_recon1": cross_recon1,
-            "cross_recon2": cross_recon2,
-            "self_recon1": self_recon1,
-            "self_recon2": self_recon2,
+            "cross_recon1": cross_recon1_with_centers,
+            "cross_recon2": cross_recon2_with_centers,
+            "self_recon1_real": self_recon1_with_real_centers,
+            "self_recon2_real": self_recon2_with_real_centers,
+            "self_recon1_pred": self_recon1_with_pred_centers,
+            "self_recon2_pred": self_recon2_with_pred_centers,
             "pred_centers1": pred_centers1,
             "pred_centers2": pred_centers2,
             "relative_center_1_2": relative_center_1_2,
             "label": label,
             "id": id,
         }
+
+    def test_epoch_end(self, outputs):
+        """
+        Save all test results to disk as PLY files.
+        Each sample is saved in save_dir/id/ folder.
+        """
+        if self.save_dir is None:
+            raise ValueError("save_dir must be specified for test mode")
+
+        save_dir = Path(self.save_dir)
+
+        for batch_output in outputs:
+            # Get batch data
+            batch_size = batch_output["input_points"].shape[0]
+            ids = batch_output["id"]
+
+            # Process each sample in the batch
+            for i in range(batch_size):
+                # Get sample id
+                sample_id = ids[i] if ids is not None else f"sample_{i}"
+                if isinstance(sample_id, torch.Tensor):
+                    sample_id = sample_id.item()
+
+                # Create directory for this sample
+                sample_dir = save_dir / str(sample_id)
+                sample_dir.mkdir(parents=True, exist_ok=True)
+
+                # Save all point clouds as PLY files
+                # Single point clouds (N, 3)
+                save_ply(
+                    batch_output["input_points"][i].cpu().numpy(),
+                    str(sample_dir / "input_points.ply"),
+                )
+                save_ply(
+                    batch_output["view1"][i].cpu().numpy(),
+                    str(sample_dir / "view1.ply"),
+                )
+                save_ply(
+                    batch_output["view2"][i].cpu().numpy(),
+                    str(sample_dir / "view2.ply"),
+                )
+                save_ply(
+                    batch_output["view1_rot"][i].cpu().numpy(),
+                    str(sample_dir / "view1_rot.ply"),
+                )
+                save_ply(
+                    batch_output["view2_rot"][i].cpu().numpy(),
+                    str(sample_dir / "view2_rot.ply"),
+                )
+
+                # Patch-based point clouds (P, K, 3) - flatten to (P*K, 3)
+                save_ply(
+                    batch_output["group1"][i].reshape(-1, 3).cpu().numpy(),
+                    str(sample_dir / "group1.ply"),
+                )
+                save_ply(
+                    batch_output["group2"][i].reshape(-1, 3).cpu().numpy(),
+                    str(sample_dir / "group2.ply"),
+                )
+                save_ply(
+                    batch_output["cross_recon1"][i].reshape(-1, 3).cpu().numpy(),
+                    str(sample_dir / "cross_recon1.ply"),
+                )
+                save_ply(
+                    batch_output["cross_recon2"][i].reshape(-1, 3).cpu().numpy(),
+                    str(sample_dir / "cross_recon2.ply"),
+                )
+                save_ply(
+                    batch_output["self_recon1_real"][i].reshape(-1, 3).cpu().numpy(),
+                    str(sample_dir / "self_recon1_real.ply"),
+                )
+                save_ply(
+                    batch_output["self_recon2_real"][i].reshape(-1, 3).cpu().numpy(),
+                    str(sample_dir / "self_recon2_real.ply"),
+                )
+                save_ply(
+                    batch_output["self_recon1_pred"][i].reshape(-1, 3).cpu().numpy(),
+                    str(sample_dir / "self_recon1_pred.ply"),
+                )
+                save_ply(
+                    batch_output["self_recon2_pred"][i].reshape(-1, 3).cpu().numpy(),
+                    str(sample_dir / "self_recon2_pred.ply"),
+                )
+
+                # Save metadata (centers, pred_centers, label, relative center) as npz
+                metadata = {
+                    "centers1": batch_output["centers1"][i].cpu().numpy(),
+                    "centers2": batch_output["centers2"][i].cpu().numpy(),
+                    "pred_centers1": batch_output["pred_centers1"][i].cpu().numpy(),
+                    "pred_centers2": batch_output["pred_centers2"][i].cpu().numpy(),
+                    "relative_center_1_2": batch_output["relative_center_1_2"][i]
+                    .cpu()
+                    .numpy(),
+                }
+                if batch_output["label"] is not None:
+                    label = batch_output["label"][i]
+                    if isinstance(label, torch.Tensor):
+                        label = label.cpu().numpy()
+                    metadata["label"] = label
+
+                np.savez(sample_dir / "metadata.npz", **metadata)
+
+        logger.info(f"Test results saved to {save_dir}")
