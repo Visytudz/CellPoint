@@ -1,7 +1,7 @@
 import torch
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
 import pytorch_lightning as pl
+from timm.scheduler import CosineLRScheduler
 
 import json
 import logging
@@ -63,10 +63,13 @@ class PQAEPretrain(pl.LightningModule):
             lr=self.optimizer_cfg.lr,
             weight_decay=self.optimizer_cfg.weight_decay,
         )
-        scheduler = CosineAnnealingLR(
+        scheduler = CosineLRScheduler(
             optimizer,
-            T_max=self.optimizer_cfg.epochs,
-            eta_min=self.optimizer_cfg.min_lr,
+            t_initial=self.optimizer_cfg.epochs,
+            lr_min=self.optimizer_cfg.min_lr,
+            warmup_t=self.optimizer_cfg.warmup_epochs,
+            warmup_lr_init=self.optimizer_cfg.warmup_lr_init,
+            t_in_epochs=True,
         )
         return [optimizer], [scheduler]
 

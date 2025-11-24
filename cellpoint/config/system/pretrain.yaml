@@ -14,6 +14,8 @@ optimizer_cfg:
   min_lr: 1e-6
   epochs: 200
   weight_decay: 0.05
+  warmup_epochs: 10
+  warmup_lr_init: 1e-6
 
 loss_weights:
   cross: 1.0      # cross reconstruction, core task
