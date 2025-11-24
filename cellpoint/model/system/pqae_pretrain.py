@@ -78,7 +78,9 @@ class PQAEPretrain(pl.LightningModule):
         """
         # generate patch features and predict centers
         B = cls_feature.shape[0]
-        patch_features, pred_centers = self.cls_to_patch(cls_feature)  # (B, P, C), (B, P, 3)
+        patch_features, pred_centers = self.cls_to_patch(
+            cls_feature
+        )  # (B, P, C), (B, P, 3)
         relative_center = torch.zeros(B, 3, device=self.device)  # (B, 3)
 
         # reconstruct from patch features
@@ -219,3 +221,71 @@ class PQAEPretrain(pl.LightningModule):
             f"Self: {loss_self:.4f} | "
             f"Center: {loss_center:.4f}"
         )
+
+    def test_step(self, batch, batch_idx):
+        """
+        Test step to return point clouds at each stage of the inference process.
+
+        Returns a dictionary containing:
+        - input_points: Original input point cloud (B, N, 3)
+        - view1: First view point cloud (B, N, 3)
+        - view2: Second view point cloud (B, N, 3)
+        - view1_rot: Rotated first view (B, N, 3)
+        - view2_rot: Rotated second view (B, N, 3)
+        - group1: Grouped patches from view1 (B, P, K, 3)
+        - group2: Grouped patches from view2 (B, P, K, 3)
+        - centers1: Centers of patches from view1 (B, P, 3)
+        - centers2: Centers of patches from view2 (B, P, 3)
+        - cross_recon1: Cross reconstruction view1 (B, P, K, 3)
+        - cross_recon2: Cross reconstruction view2 (B, P, K, 3)
+        - self_recon1: Self reconstruction view1 (B, P, K, 3)
+        - self_recon2: Self reconstruction view2 (B, P, K, 3)
+        - pred_centers1: Predicted centers from view1 (B, P, 3)
+        - pred_centers2: Predicted centers from view2 (B, P, 3)
+        - label: Label from batch if available
+        """
+        # 1. Get input points
+        pts = batch["points"]  # (B, N, 3)
+        input_points = pts.clone()
+        label = batch[label]
+        id = batch["id"]
+
+        # 2. Generate view pairs and their relative position
+        relative_center_1_2, (view1_rot, view1), (view2_rot, view2) = (
+            self.view_generator(pts)
+        )
+
+        # 3. Extract features
+        cls_features1, patch_features1, centers1, group1 = self.extractor(view1_rot)
+        cls_features2, patch_features2, centers2, group2 = self.extractor(view2_rot)
+
+        # 4. Cross reconstruction
+        cross_recon1, cross_recon2 = self.cross_reconstruction(
+            patch_features1, patch_features2, centers1, centers2, relative_center_1_2
+        )
+
+        # 5. Self reconstruction
+        self_recon1, pred_centers1 = self.self_reconstruction(cls_features1)
+        self_recon2, pred_centers2 = self.self_reconstruction(cls_features2)
+
+        # Return all intermediate point clouds
+        return {
+            "input_points": input_points,
+            "view1": view1,
+            "view2": view2,
+            "view1_rot": view1_rot,
+            "view2_rot": view2_rot,
+            "group1": group1,
+            "group2": group2,
+            "centers1": centers1,
+            "centers2": centers2,
+            "cross_recon1": cross_recon1,
+            "cross_recon2": cross_recon2,
+            "self_recon1": self_recon1,
+            "self_recon2": self_recon2,
+            "pred_centers1": pred_centers1,
+            "pred_centers2": pred_centers2,
+            "relative_center_1_2": relative_center_1_2,
+            "label": label,
+            "id": id,
+        }
