@@ -1,7 +1,7 @@
 import torch
 from torch.optim import AdamW
+from torch.optim.lr_scheduler import SequentialLR, LinearLR, CosineAnnealingLR
 import pytorch_lightning as pl
-from timm.scheduler import CosineLRScheduler
 
 import json
 import logging
@@ -63,15 +63,39 @@ class PQAEPretrain(pl.LightningModule):
             lr=self.optimizer_cfg.lr,
             weight_decay=self.optimizer_cfg.weight_decay,
         )
-        scheduler = CosineLRScheduler(
+
+        # Warmup scheduler: linear warmup from warmup_lr_init to lr
+        warmup_epochs = self.optimizer_cfg.warmup_epochs
+        warmup_scheduler = LinearLR(
             optimizer,
-            t_initial=self.optimizer_cfg.epochs,
-            lr_min=self.optimizer_cfg.min_lr,
-            warmup_t=self.optimizer_cfg.warmup_epochs,
-            warmup_lr_init=self.optimizer_cfg.warmup_lr_init,
-            t_in_epochs=True,
+            start_factor=self.optimizer_cfg.warmup_lr_init / self.optimizer_cfg.lr,
+            end_factor=1.0,
+            total_iters=warmup_epochs,
         )
-        return [optimizer], [scheduler]
+
+        # Main scheduler: cosine annealing from lr to min_lr
+        cosine_epochs = self.optimizer_cfg.epochs - warmup_epochs
+        cosine_scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=cosine_epochs,
+            eta_min=self.optimizer_cfg.min_lr,
+        )
+
+        # Combine warmup + cosine annealing
+        scheduler = SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, cosine_scheduler],
+            milestones=[warmup_epochs],
+        )
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }
 
     def self_reconstruction(
         self, cls_feature: torch.Tensor
