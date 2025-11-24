@@ -32,6 +32,7 @@ def test(cfg: DictConfig) -> None:
         accelerator="auto",
         devices="auto",
         logger=False,  # No logging during test
+        enable_checkpointing=False,  # Disable checkpointing during test
         **cfg.get("trainer", {}),
     )
 

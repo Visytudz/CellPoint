@@ -1,10 +1,11 @@
 import torch
 from torch.optim import AdamW
-import pytorch_lightning as pl
 from torch.optim.lr_scheduler import CosineAnnealingLR
+import pytorch_lightning as pl
+
 import logging
-from pathlib import Path
 import numpy as np
+from pathlib import Path
 
 from cellpoint.loss import ChamferLoss
 from cellpoint.utils.io import save_ply
@@ -50,8 +51,9 @@ class PQAEPretrain(pl.LightningModule):
         self.optimizer_cfg = optimizer_cfg
         self.loss_weights = loss_weights
 
-        # save directory for test results
+        # other attributes
         self.save_dir = save_dir
+        self.test_step_outputs = []
 
     def configure_optimizers(self):
         optimizer = AdamW(
@@ -289,7 +291,7 @@ class PQAEPretrain(pl.LightningModule):
         self_recon2_with_pred_centers = self_recon2 + pred_centers2.unsqueeze(2)
 
         # Return all intermediate point clouds
-        return {
+        output = {
             "input_points": input_points,
             "view1": view1,
             "view2": view2,
@@ -312,7 +314,11 @@ class PQAEPretrain(pl.LightningModule):
             "id": id,
         }
 
-    def test_epoch_end(self, outputs):
+        # Collect outputs for epoch end processing
+        self.test_step_outputs.append(output)
+        return output
+
+    def on_test_epoch_end(self):
         """
         Save all test results to disk as PLY files.
         Each sample is saved in save_dir/id/ folder.
@@ -322,7 +328,7 @@ class PQAEPretrain(pl.LightningModule):
 
         save_dir = Path(self.save_dir)
 
-        for batch_output in outputs:
+        for batch_output in self.test_step_outputs:
             # Get batch data
             batch_size = batch_output["input_points"].shape[0]
             ids = batch_output["id"]
@@ -414,3 +420,6 @@ class PQAEPretrain(pl.LightningModule):
                 np.savez(sample_dir / "metadata.npz", **metadata)
 
         logger.info(f"Test results saved to {save_dir}")
+
+        # Clear outputs for next test run
+        self.test_step_outputs.clear()
