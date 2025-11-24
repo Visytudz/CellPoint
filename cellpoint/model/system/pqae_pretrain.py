@@ -3,8 +3,8 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import pytorch_lightning as pl
 
+import json
 import logging
-import numpy as np
 from pathlib import Path
 
 from cellpoint.loss import ChamferLoss
@@ -401,23 +401,31 @@ class PQAEPretrain(pl.LightningModule):
                     str(sample_dir / "self_recon2_pred.ply"),
                 )
 
-                # Save metadata (centers, pred_centers, label, relative center) as npz
+                # Save metadata (centers, pred_centers, label, relative center) as json
                 metadata = {
-                    "centers1": batch_output["centers1"][i].cpu().numpy(),
-                    "centers2": batch_output["centers2"][i].cpu().numpy(),
-                    "pred_centers1": batch_output["pred_centers1"][i].cpu().numpy(),
-                    "pred_centers2": batch_output["pred_centers2"][i].cpu().numpy(),
+                    "centers1": batch_output["centers1"][i].cpu().numpy().tolist(),
+                    "centers2": batch_output["centers2"][i].cpu().numpy().tolist(),
+                    "pred_centers1": batch_output["pred_centers1"][i]
+                    .cpu()
+                    .numpy()
+                    .tolist(),
+                    "pred_centers2": batch_output["pred_centers2"][i]
+                    .cpu()
+                    .numpy()
+                    .tolist(),
                     "relative_center_1_2": batch_output["relative_center_1_2"][i]
                     .cpu()
-                    .numpy(),
+                    .numpy()
+                    .tolist(),
                 }
                 if batch_output["label"] is not None:
                     label = batch_output["label"][i]
                     if isinstance(label, torch.Tensor):
-                        label = label.cpu().numpy()
+                        label = label.item()
                     metadata["label"] = label
 
-                np.savez(sample_dir / "metadata.npz", **metadata)
+                with open(sample_dir / "metadata.json", "w") as f:
+                    json.dump(metadata, f, indent=2)
 
         logger.info(f"Test results saved to {save_dir}")
 
