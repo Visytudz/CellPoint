@@ -1,0 +1,12 @@
+defaults:
+  - model/share@share
+  - model/view_generator@view_generator
+  - model/extractor@extractor
+  - model/cls_to_patch@cls_to_patch
+  - model/decoder@decoder
+  - _self_
+
+_target_: cellpoint.model.PQAEPretrain
+
+save_dir: null # If specified, test results will be saved here
+ckpt_path: null # Path to a checkpoint to load, not used in system but in Trainer call

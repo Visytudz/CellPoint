@@ -21,4 +21,4 @@ loss_weights:
   center: 0.5     # center regression, geometric constraint
   warmup_epochs: 20  # warm-up period for center loss
 
-ckpt_path: null
+ckpt_path: null # Path to a checkpoint to load, not used in system but in Trainer call

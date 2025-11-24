@@ -19,9 +19,9 @@ class PQAEPretrain(pl.LightningModule):
         view_generator,
         decoder,
         cls_to_patch,
-        transform,
-        optimizer_cfg,
-        loss_weights,
+        transform=torch.nn.Identity(),
+        optimizer_cfg=None,
+        loss_weights=None,
         save_dir=None,
         **kwargs,
     ):
