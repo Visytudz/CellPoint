@@ -16,6 +16,8 @@ optimizer_cfg:
   weight_decay: 0.05
   epochs: 300
   unfreeze_extractor_epoch: 50
+  warmup_epochs: 5
+  warmup_lr_init: 1e-6  # warmup initial learning rate
 
 ckpt_path: null # loading the whole model, for resuming training
 extractor_ckpt_path: ??? # loading pretrained extractor only, for transfer learning

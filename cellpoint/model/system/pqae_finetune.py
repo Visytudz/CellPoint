@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import SequentialLR, LinearLR, CosineAnnealingLR
 
 from logging import getLogger
 
@@ -50,12 +50,43 @@ class PQAEFinetune(pl.LightningModule):
             },
         ]
         optimizer = AdamW(params, weight_decay=self.optimizer_cfg.weight_decay)
-        scheduler = CosineAnnealingLR(
+
+        # Get warmup settings (with defaults)
+        warmup_epochs = self.optimizer_cfg.warmup_epochs
+        warmup_lr_init = self.optimizer_cfg.warmup_lr_init
+        warmup_start_factor = warmup_lr_init / self.optimizer_cfg.head_lr
+
+        # Warmup scheduler
+        warmup_scheduler = LinearLR(
             optimizer,
-            T_max=self.optimizer_cfg.epochs,
+            start_factor=warmup_start_factor,
+            end_factor=1.0,
+            total_iters=warmup_epochs,
+        )
+
+        # Cosine annealing scheduler
+        cosine_epochs = self.optimizer_cfg.epochs - warmup_epochs
+        cosine_scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=cosine_epochs,
             eta_min=self.optimizer_cfg.min_lr,
         )
-        return [optimizer], [scheduler]
+
+        # Combine schedulers
+        scheduler = SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, cosine_scheduler],
+            milestones=[warmup_epochs],
+        )
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }
 
     def load_pretrained_encoder(self, checkpoint_path):
         """load pretrained encoder weights from PQAE pretraining checkpoint"""
