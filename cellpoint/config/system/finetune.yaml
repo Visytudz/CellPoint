@@ -10,11 +10,11 @@ defaults:
 _target_: cellpoint.model.PQAEFinetune
 
 optimizer_cfg:
-  head_lr: 0.001
-  extractor_lr: 1e-5
-  min_lr: 1e-6
+  head_lr: 5e-4
+  extractor_lr: 5e-5
+  min_lr: 1e-7
   weight_decay: 0.05
-  epochs: 500
+  epochs: 300
   unfreeze_extractor_epoch: 50
 
 ckpt_path: null # loading the whole model, for resuming training
