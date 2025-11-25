@@ -1,0 +1,12 @@
+defaults:
+  - system: finetune_test
+  - data: finetune_test
+  - logger: null
+  - callback: null
+  - trainer: default
+  - hydra: default
+  - _self_           
+
+# Global settings
+project_name: "3DCellPoint"
+seed: 42

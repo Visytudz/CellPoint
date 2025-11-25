@@ -24,6 +24,9 @@ def test(cfg: DictConfig) -> None:
     # 2. instantiate model
     log.info(f"Instantiating System <{cfg.system._target_}>")
     model = hydra.utils.instantiate(cfg.system, _recursive_=True)
+    if hasattr(model, "load_pretrained_weights"):
+        pretrained_path = cfg.system.pretrained_ckpt_path
+        model.load_pretrained_weights(pretrained_path)
 
     # 3. initialize Trainer
     log.info("Initializing Trainer for testing")
@@ -37,8 +40,10 @@ def test(cfg: DictConfig) -> None:
     )
 
     # 4. run test
-    log.info(f"🧪 Starting testing... Results will be saved to {cfg.system.save_dir}")
-    trainer.test(model, datamodule=dm, ckpt_path=cfg.system.ckpt_path)
+    log.info(
+        f"🧪 Starting testing... Results will be saved to {cfg.system.get("save_dir")}"
+    )
+    trainer.test(model, datamodule=dm, ckpt_path=cfg.system.resume_ckpt_path)
 
     log.info("✅ Testing completed!")
 

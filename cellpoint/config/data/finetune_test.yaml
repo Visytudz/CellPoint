@@ -1,0 +1,8 @@
+defaults:
+  - dataset@test_datasets: [modelnet40_test]
+  - _self_
+
+_target_: cellpoint.data.PointCloudDataModule
+
+batch_size: 256
+num_workers: 4

@@ -10,13 +10,14 @@ logger = getLogger(__name__)
 
 
 class PQAEFinetune(pl.LightningModule):
+
     def __init__(
         self,
         extractor,
         classification_head,
-        transform,
         metrics,
-        optimizer_cfg,
+        transform=torch.nn.Identity(),
+        optimizer_cfg=None,
         **kwargs,
     ):
         super().__init__()
