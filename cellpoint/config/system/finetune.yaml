@@ -19,5 +19,5 @@ optimizer_cfg:
   warmup_epochs: 5
   warmup_lr_init: 1e-6  # warmup initial learning rate
 
-ckpt_path: null # loading the whole model, for resuming training
-extractor_ckpt_path: ??? # loading pretrained extractor only, for transfer learning
+resume_ckpt_path: null  # for resuming training (loads full training state)
+pretrained_ckpt_path: ???  # for loading pretrained weights (extractor and/or head)

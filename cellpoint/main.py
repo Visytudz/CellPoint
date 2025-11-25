@@ -51,10 +51,10 @@ def main(cfg: DictConfig) -> None:
     # 2. system (model)
     log.info(f"Instantiating System <{cfg.system._target_}>")
     model = hydra.utils.instantiate(cfg.system, _recursive_=True)
-    # load pretrained encoder if specified
-    if hasattr(model, "load_pretrained_encoder"):
-        pretrained_path = cfg.system.get("extractor_ckpt_path", None)
-        model.load_pretrained_encoder(pretrained_path)
+    # load pretrained weights if specified
+    if hasattr(model, "load_pretrained_weights"):
+        pretrained_path = cfg.system.pretrained_ckpt_path
+        model.load_pretrained_weights(pretrained_path)
 
     # 3. initialize loggers and callbacks
     logger = instantiate_loggers(cfg.logger)
@@ -82,7 +82,7 @@ def main(cfg: DictConfig) -> None:
 
     # 5. start training
     log.info("🔥 Starting training...")
-    trainer.fit(model, datamodule=dm, ckpt_path=cfg.system.ckpt_path)
+    trainer.fit(model, datamodule=dm, ckpt_path=cfg.system.resume_ckpt_path)
 
     # 6. test after training (if test data available)
     if dm.test_ds_list:

@@ -88,22 +88,32 @@ class PQAEFinetune(pl.LightningModule):
             },
         }
 
-    def load_pretrained_encoder(self, checkpoint_path):
-        """load pretrained encoder weights from PQAE pretraining checkpoint"""
+    def load_pretrained_weights(self, checkpoint_path):
+        """Load pretrained weights (extractor and/or classification_head) from checkpoint"""
         if not checkpoint_path:
-            logger.info("No checkpoint path provided for pretrained encoder.")
+            logger.info("No checkpoint path provided, using random initialization.")
             return
 
-        logger.info(f"Loading pretrained encoder from {checkpoint_path}")
+        logger.info(f"Loading pretrained weights from: {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-        state_dict = checkpoint["state_dict"]
-        new_state_dict = {}
-        for k, v in state_dict.items():
-            if k.startswith("extractor."):
-                new_state_dict[k] = v
-        missing, unexpected = self.load_state_dict(new_state_dict, strict=False)
-        logger.info(f"Loaded keys: {len(new_state_dict)}")
-        logger.info(f"Missing keys (mostly head): {len(missing)}")
+        state_dict = checkpoint.get("state_dict", checkpoint)
+
+        missing, unexpected = self.load_state_dict(state_dict, strict=False)
+        logger.info(
+            f"✓ Loaded {len(state_dict) - len(unexpected)} keys from checkpoint"
+        )
+
+        if missing:
+            logger.info(
+                f"Missing {len(missing)} keys (will use random initialization):"
+            )
+            for key in missing:
+                logger.info(f"  - {key}")
+
+        if unexpected:
+            logger.info(f"Unexpected {len(unexpected)} keys (ignored):")
+            for key in unexpected:
+                logger.info(f"  - {key}")
 
     def on_train_epoch_start(self):
         """control encoder freeze/unfreeze"""
