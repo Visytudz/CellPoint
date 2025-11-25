@@ -82,7 +82,7 @@ def main(cfg: DictConfig) -> None:
 
     # 5. start training
     log.info("🔥 Starting training...")
-    trainer.fit(model, datamodule=dm, ckpt_path=cfg.get("cfg.system.ckpt_path", None))
+    trainer.fit(model, datamodule=dm, ckpt_path=cfg.system.ckpt_path)
 
     # 6. test after training (if test data available)
     if dm.test_ds_list:
