@@ -25,18 +25,6 @@ class ClassificationHead(nn.Module):
             nn.Linear(hidden_dim // 2, num_classes),
         )
 
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm1d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # (B, C) -> (B, num_classes)
         return self.head(x)
