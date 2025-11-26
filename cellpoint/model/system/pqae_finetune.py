@@ -51,6 +51,7 @@ class PQAEFinetune(pl.LightningModule):
         # Encoder Freeze Control
         self.encoder_frozen = False
         self.best_val_acc = 0.0
+        self.should_vote_this_epoch = False
 
     def configure_optimizers(self):
         params = [
@@ -181,6 +182,30 @@ class PQAEFinetune(pl.LightningModule):
 
         return loss
 
+    def on_train_epoch_end(self):
+        """Log epoch summary"""
+        # Get epoch metrics from trainer's logged metrics
+        metrics = self.trainer.callback_metrics
+        loss_epoch = metrics.get("train/loss_epoch", 0)
+        acc_epoch = metrics.get("train/acc_epoch", 0)
+
+        logger.info(
+            f"Epoch {self.current_epoch} finished | "
+            f"Loss: {loss_epoch:.4f} | "
+            f"Acc: {acc_epoch:.4f}"
+        )
+
+    def on_validation_epoch_start(self):
+        self.should_vote_this_epoch = False
+        if self.trainer.sanity_checking:
+            return
+        if (
+            self.vote_cfg is not None
+            and self.vote_cfg["enabled"]
+            and self.best_val_acc >= self.vote_cfg["acc_threshold"]
+        ):
+            self.should_vote_this_epoch = True
+
     def _vote_inference(self, pts):
         num_votes = self.vote_cfg["num_votes"]
         vote_logits = 0
@@ -194,14 +219,22 @@ class PQAEFinetune(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         pts, labels = batch["points"], batch["label"].squeeze()
 
-        # Standard inference
+        # 1. Standard inference
         logits = self(pts)
         loss = self.loss_fn(logits, labels)
         self.val_acc(logits, labels)
+
+        # 2. Vote inference
+        if self.should_vote_this_epoch:
+            logits_vote = self._vote_inference(pts)
+            self.vote_acc(logits_vote, labels)
+
+        # 3. Log
         self.log_dict(
             {
                 "val/loss": loss,
                 "val/acc": self.val_acc,
+                "val/acc_vote": self.vote_acc if self.should_vote_this_epoch else 0.0,
             },
             on_step=False,
             on_epoch=True,
@@ -209,23 +242,23 @@ class PQAEFinetune(pl.LightningModule):
             batch_size=pts.size(0),
         )
 
-        # Vote inference
-        if (
-            self.vote_cfg is not None
-            and self.vote_cfg["enabled"]
-            and self.best_val_acc >= self.vote_cfg["acc_threshold"]
-        ):
+    def on_validation_epoch_end(self):
+        """Log validation epoch summary"""
+        metrics = self.trainer.callback_metrics
+        current_acc = metrics.get("val/acc", 0)
+        vote_acc = metrics.get("val/acc_vote", 0)
+        loss_epoch = metrics.get("val/loss", 0)
 
-            logits_vote = self._vote_inference(pts)
-            self.vote_acc(logits_vote, labels)
-            self.log(
-                "val/acc_vote",
-                self.vote_acc,
-                on_step=False,
-                on_epoch=True,
-                prog_bar=True,
-                batch_size=pts.size(0),
-            )
+        if current_acc is not None and current_acc > self.best_val_acc:
+            self.best_val_acc = current_acc.item()
+
+        logger.info(
+            f"Validation Epoch {self.current_epoch} finished | "
+            f"Loss: {loss_epoch:.4f} | "
+            f"Acc: {current_acc:.4f} | "
+            f"Vote Acc: {vote_acc:.4f} | "
+            f"Best Standard Acc: {self.best_val_acc:.4f}"
+        )
 
     def test_step(self, batch, batch_idx):
         pts, labels = batch["points"], batch["label"].squeeze()
@@ -246,33 +279,4 @@ class PQAEFinetune(pl.LightningModule):
             on_epoch=True,
             prog_bar=True,
             batch_size=pts.size(0),
-        )
-
-    def on_train_epoch_end(self):
-        """Log epoch summary"""
-        # Get epoch metrics from trainer's logged metrics
-        metrics = self.trainer.callback_metrics
-        loss_epoch = metrics.get("train/loss_epoch", 0)
-        acc_epoch = metrics.get("train/acc_epoch", 0)
-
-        logger.info(
-            f"Epoch {self.current_epoch} finished | "
-            f"Loss: {loss_epoch:.4f} | "
-            f"Acc: {acc_epoch:.4f}"
-        )
-
-    def on_validation_epoch_end(self):
-        """Log validation epoch summary"""
-        metrics = self.trainer.callback_metrics
-        current_acc = metrics.get("val/acc", 0)
-        vote_acc = metrics.get("val/acc_vote", 0)
-
-        if current_acc is not None and current_acc > self.best_val_acc:
-            self.best_val_acc = current_acc.item()
-
-        logger.info(
-            f"Validation Epoch {self.current_epoch} finished | "
-            f"Acc: {current_acc:.4f} | "
-            f"Vote Acc: {vote_acc:.4f} | "
-            f"Best Standard Acc: {self.best_val_acc:.4f}"
         )
