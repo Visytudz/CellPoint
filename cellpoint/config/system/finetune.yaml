@@ -22,7 +22,7 @@ optimizer_cfg:
 vote_cfg:
   enabled: true
   num_votes: 10
-  acc_threshold: 85.0
+  acc_threshold: 0.85
 
 resume_ckpt_path: null  # for resuming training (loads full training state)
 pretrained_ckpt_path: null  # for loading pretrained weights (extractor and/or head)
