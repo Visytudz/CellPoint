@@ -2,9 +2,9 @@ defaults:
   - model/share@share
   - model/extractor@extractor
   - model/classification_head@classification_head
-  - model/accuracy@metrics.train_acc
-  - model/accuracy@metrics.val_acc
-  - transform/finetune@transform
+  - model/accuracy@acc_metrics
+  - transform/finetune@train_transform
+  - transform/finetune@val_transform
   - _self_
 
 _target_: cellpoint.model.PQAEFinetune
@@ -18,6 +18,11 @@ optimizer_cfg:
   unfreeze_extractor_epoch: 50
   warmup_epochs: 5
   warmup_lr_init: 1e-6  # warmup initial learning rate
+
+vote_cfg:
+  enabled: true
+  num_votes: 10
+  acc_threshold: 88.0
 
 resume_ckpt_path: null  # for resuming training (loads full training state)
 pretrained_ckpt_path: null  # for loading pretrained weights (extractor and/or head)

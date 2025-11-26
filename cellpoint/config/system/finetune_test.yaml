@@ -2,8 +2,7 @@ defaults:
   - model/share@share
   - model/extractor@extractor
   - model/classification_head@classification_head
-  - model/accuracy@metrics.train_acc
-  - model/accuracy@metrics.val_acc
+  - model/accuracy@acc_metrics
   - _self_
 
 _target_: cellpoint.model.PQAEFinetune
