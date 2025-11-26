@@ -234,7 +234,7 @@ class PQAEFinetune(pl.LightningModule):
             {
                 "val/loss": loss,
                 "val/acc": self.val_acc,
-                "val/acc_vote": self.vote_acc if self.should_vote_this_epoch else 0.0,
+                "val/acc_vote": self.vote_acc,  # if not update, it will return 0.0
             },
             on_step=False,
             on_epoch=True,
