@@ -21,12 +21,14 @@ class PointcloudFarthestPointSampling:
     Expands the number of points by a ratio before sampling to introduce randomness.
     """
 
-    def __init__(self, num_points: int, expand_ratio: float = 1.1):
+    def __init__(
+        self, num_points: int, expand_ratio: float = 1.1, max_points: int = 8192
+    ):
         self.num_points = num_points
-        self.expand_ratio = expand_ratio
+        self.expand_num_points = min(int(num_points * expand_ratio), max_points)
 
     def __call__(self, points: torch.Tensor) -> torch.Tensor:
-        sampled_points = fps(points, int(self.num_points * self.expand_ratio))
+        sampled_points = fps(points, self.expand_num_points)
         choice = torch.randperm(sampled_points.shape[1])[: self.num_points]
         sampled_points = sampled_points[:, choice, :]
         return sampled_points
