@@ -1,7 +1,17 @@
+model_checkpoint_vote:
+  _target_: pytorch_lightning.callbacks.ModelCheckpoint
+  dirpath: "checkpoints"
+  filename: "vote-epoch{epoch:03d}-acc{val/acc_vote:.4f}" 
+  monitor: "val/acc_vote"
+  mode: "max"
+  save_top_k: 1
+  save_last: false
+  auto_insert_metric_name: false
+
 model_checkpoint:
   _target_: pytorch_lightning.callbacks.ModelCheckpoint
   dirpath: "checkpoints"
-  filename: "{epoch:03d}-{val/acc:.4f}"
+  filename: "epoch{epoch:03d}-acc{val/acc:.4f}"
   monitor: "val/acc"
   mode: "max"
   save_top_k: 3
