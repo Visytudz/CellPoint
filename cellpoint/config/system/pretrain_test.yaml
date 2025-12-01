@@ -2,7 +2,7 @@ defaults:
   - model/share@share
   - model/view_generator@view_generator
   - model/extractor@extractor
-  - model/cls_to_patch@cls_to_patch
+  - model/sqtd@global_decoder
   - model/decoder@decoder
   - _self_
 

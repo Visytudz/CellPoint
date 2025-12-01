@@ -1,4 +1,0 @@
-_target_: cellpoint.model.ClsToPatch
-
-embed_dim: ${system.share.embed_dim}
-num_patches: ${system.share.num_group}

@@ -19,7 +19,7 @@ class PQAEPretrain(pl.LightningModule):
         extractor,
         view_generator,
         decoder,
-        cls_to_patch,
+        global_decoder,
         transform=torch.nn.Identity(),
         optimizer_cfg=None,
         loss_weights=None,
@@ -41,8 +41,8 @@ class PQAEPretrain(pl.LightningModule):
         # prepare model components
         self.view_generator = view_generator
         self.extractor = extractor
-        self.cls_to_patch = cls_to_patch
         self.decoder = decoder
+        self.global_decoder = global_decoder
 
         # loss function and data augmentation
         self.transform = transform
@@ -97,9 +97,7 @@ class PQAEPretrain(pl.LightningModule):
             },
         }
 
-    def self_reconstruction(
-        self, cls_feature: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def self_reconstruction(self, cls_feature: torch.Tensor) -> torch.Tensor:
         """
         Self reconstruction from cls token to patch.
 
@@ -110,25 +108,11 @@ class PQAEPretrain(pl.LightningModule):
 
         Returns
         -------
-        tuple[torch.Tensor, torch.Tensor]
-            The reconstructed point cloud patches and the predicted centers.
-            Shape: (B, P, K, 3), (B, P, 3).
+        torch.Tensor
+            The reconstructed point cloud patches. Shape: (B, N, 3).
         """
-        # generate patch features and predict centers
-        B = cls_feature.shape[0]
-        patch_features, pred_centers = self.cls_to_patch(
-            cls_feature
-        )  # (B, P, C), (B, P, 3)
-        relative_center = torch.zeros(B, 3, device=self.device)  # (B, 3)
-
-        # reconstruct from patch features
-        self_recon = self.decoder(
-            source_tokens=patch_features,
-            target_centers=pred_centers,
-            relative_center=relative_center,
-        )  # (B, P, K, 3)
-
-        return self_recon, pred_centers
+        self_recon = self.global_decoder(cls_feature)  # (B, N, 3)
+        return self_recon
 
     def cross_reconstruction(
         self,
@@ -198,9 +182,9 @@ class PQAEPretrain(pl.LightningModule):
 
         # 5. self reconstruction (optional)
         if self.enable_self_reconstruction:
-            # recon: (B, P, K, 3), pred_centers: (B, P, 3)
-            self_recon1, pred_centers1 = self.self_reconstruction(cls_features1)
-            self_recon2, pred_centers2 = self.self_reconstruction(cls_features2)
+            # recon: (B, N, 3)
+            self_recon1 = self.self_reconstruction(cls_features1)
+            self_recon2 = self.self_reconstruction(cls_features2)
 
         # 6. calculate loss
         loss_cross = self.loss_fn(
@@ -208,40 +192,24 @@ class PQAEPretrain(pl.LightningModule):
         ) + self.loss_fn(group2.flatten(0, 1), cross_recon2.flatten(0, 1))
 
         if self.enable_self_reconstruction:
-            loss_self = self.loss_fn(
-                group1.flatten(0, 1), self_recon1.flatten(0, 1)
-            ) + self.loss_fn(group2.flatten(0, 1), self_recon2.flatten(0, 1))
-            loss_center = self.loss_fn(centers1, pred_centers1) + self.loss_fn(
-                centers2, pred_centers2
+            loss_self = self.loss_fn(group1.flatten(0, 1), self_recon1) + self.loss_fn(
+                group2.flatten(0, 1), self_recon2
             )
         else:
             # If disabled, set auxiliary losses to zero
             loss_self = torch.tensor(0.0, device=self.device)
-            loss_center = torch.tensor(0.0, device=self.device)
 
         # 7. combine losses with weights
         w_cross = self.loss_weights.cross
         w_self = self.loss_weights.self
-        w_center = self.loss_weights.center
-        warmup_epochs = self.loss_weights.warmup_epochs
-        if self.current_epoch < warmup_epochs:
-            # warm-up period: focus on geometric and feature learning, pause self-reconstruction
-            w_self = 0.0
-            w_center = 1.0
-        total_loss = w_cross * loss_cross + w_self * loss_self + w_center * loss_center
+        total_loss = w_cross * loss_cross + w_self * loss_self
 
         # Logging
         log_dict = {
             "train/loss": total_loss * 1000,
             "train/loss_cross": loss_cross * 1000,
-            "train/w_cross": w_cross,
-            "train/w_self": w_self,
-            "train/w_center": w_center,
+            "train/loss_self": loss_self * 1000,
         }
-        # include auxiliary losses only if enabled (keeps logs consistent)
-        log_dict["train/loss_self"] = loss_self * 1000
-        log_dict["train/loss_center"] = loss_center * 1000
-
         self.log_dict(
             log_dict,
             on_step=True,
@@ -260,14 +228,12 @@ class PQAEPretrain(pl.LightningModule):
         loss_epoch = metrics.get("train/loss_epoch", 0)
         loss_cross = metrics.get("train/loss_cross_epoch", 0)
         loss_self = metrics.get("train/loss_self_epoch", 0)
-        loss_center = metrics.get("train/loss_center_epoch", 0)
 
         logger.info(
             f"Epoch {epoch} finished | "
             f"Loss: {loss_epoch:.4f} | "
             f"Cross: {loss_cross:.4f} | "
             f"Self: {loss_self:.4f} | "
-            f"Center: {loss_center:.4f}"
         )
 
     def test_step(self, batch, batch_idx):
@@ -288,8 +254,6 @@ class PQAEPretrain(pl.LightningModule):
         - cross_recon2: Cross reconstruction view2 (B, P, K, 3)
         - self_recon1: Self reconstruction view1 (B, P, K, 3)
         - self_recon2: Self reconstruction view2 (B, P, K, 3)
-        - pred_centers1: Predicted centers from view1 (B, P, 3)
-        - pred_centers2: Predicted centers from view2 (B, P, 3)
         - label: Label from batch if available
         """
         # 1. Get input points
@@ -314,15 +278,13 @@ class PQAEPretrain(pl.LightningModule):
 
         # 5. Self reconstruction (optional)
         if self.enable_self_reconstruction:
-            self_recon1, pred_centers1 = self.self_reconstruction(cls_features1)
-            self_recon2, pred_centers2 = self.self_reconstruction(cls_features2)
+            self_recon1 = self.self_reconstruction(cls_features1)
+            self_recon2 = self.self_reconstruction(cls_features2)
         else:
             # placeholders for downstream code; keep shapes compatible where possible
             B, P, K = group1.shape[0], group1.shape[1], group1.shape[2]
-            self_recon1 = torch.zeros(B, P, K, 3, device=self.device)
-            self_recon2 = torch.zeros(B, P, K, 3, device=self.device)
-            pred_centers1 = torch.zeros(B, centers1.shape[1], 3, device=self.device)
-            pred_centers2 = torch.zeros(B, centers2.shape[1], 3, device=self.device)
+            self_recon1 = torch.zeros(B, P * K, 3, device=self.device)
+            self_recon2 = torch.zeros(B, P * K, 3, device=self.device)
 
         # 6. Add centers to reconstructions to align patches in global space
         # Add real centers: (B, P, K, 3) + (B, P, 1, 3) -> (B, P, K, 3)
@@ -330,12 +292,6 @@ class PQAEPretrain(pl.LightningModule):
         group2_with_centers = group2 + centers2.unsqueeze(2)
         cross_recon1_with_centers = cross_recon1 + centers1.unsqueeze(2)
         cross_recon2_with_centers = cross_recon2 + centers2.unsqueeze(2)
-
-        # Add both real and predicted centers to self_recon
-        self_recon1_with_real_centers = self_recon1 + centers1.unsqueeze(2)
-        self_recon2_with_real_centers = self_recon2 + centers2.unsqueeze(2)
-        self_recon1_with_pred_centers = self_recon1 + pred_centers1.unsqueeze(2)
-        self_recon2_with_pred_centers = self_recon2 + pred_centers2.unsqueeze(2)
 
         # Return all intermediate point clouds
         output = {
@@ -350,12 +306,8 @@ class PQAEPretrain(pl.LightningModule):
             "centers2": centers2,
             "cross_recon1": cross_recon1_with_centers,
             "cross_recon2": cross_recon2_with_centers,
-            "self_recon1_real": self_recon1_with_real_centers,
-            "self_recon2_real": self_recon2_with_real_centers,
-            "self_recon1_pred": self_recon1_with_pred_centers,
-            "self_recon2_pred": self_recon2_with_pred_centers,
-            "pred_centers1": pred_centers1,
-            "pred_centers2": pred_centers2,
+            "self_recon1": self_recon1,
+            "self_recon2": self_recon2,
             "relative_center_1_2": relative_center_1_2,
             "label": label,
             "id": id,
@@ -434,32 +386,12 @@ class PQAEPretrain(pl.LightningModule):
                 # Save self-reconstruction outputs only if enabled
                 if self.enable_self_reconstruction:
                     save_ply(
-                        batch_output["self_recon1_real"][i]
-                        .reshape(-1, 3)
-                        .cpu()
-                        .numpy(),
-                        str(sample_dir / "self_recon1_real.ply"),
+                        batch_output["self_recon1"][i].cpu().numpy(),
+                        str(sample_dir / "self_recon1.ply"),
                     )
                     save_ply(
-                        batch_output["self_recon2_real"][i]
-                        .reshape(-1, 3)
-                        .cpu()
-                        .numpy(),
-                        str(sample_dir / "self_recon2_real.ply"),
-                    )
-                    save_ply(
-                        batch_output["self_recon1_pred"][i]
-                        .reshape(-1, 3)
-                        .cpu()
-                        .numpy(),
-                        str(sample_dir / "self_recon1_pred.ply"),
-                    )
-                    save_ply(
-                        batch_output["self_recon2_pred"][i]
-                        .reshape(-1, 3)
-                        .cpu()
-                        .numpy(),
-                        str(sample_dir / "self_recon2_pred.ply"),
+                        batch_output["self_recon2"][i].cpu().numpy(),
+                        str(sample_dir / "self_recon2.ply"),
                     )
 
                 # Save metadata (centers, pred_centers, label, relative center) as json
@@ -468,14 +400,6 @@ class PQAEPretrain(pl.LightningModule):
                     "self_reconstruction_enabled": self.enable_self_reconstruction,
                     "centers1": batch_output["centers1"][i].cpu().numpy().tolist(),
                     "centers2": batch_output["centers2"][i].cpu().numpy().tolist(),
-                    "pred_centers1": batch_output["pred_centers1"][i]
-                    .cpu()
-                    .numpy()
-                    .tolist(),
-                    "pred_centers2": batch_output["pred_centers2"][i]
-                    .cpu()
-                    .numpy()
-                    .tolist(),
                     "relative_center_1_2": batch_output["relative_center_1_2"][i]
                     .cpu()
                     .numpy()

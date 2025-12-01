@@ -2,7 +2,7 @@ defaults:
   - model/share@share
   - model/view_generator@view_generator
   - model/extractor@extractor
-  - model/cls_to_patch@cls_to_patch
+  - model/sqtd@global_decoder
   - model/decoder@decoder
   - transform/pretrain@transform
   - _self_
@@ -20,8 +20,6 @@ optimizer_cfg:
 loss_weights:
   cross: 1.0      # cross reconstruction, core task
   self: 0.5       # self reconstruction, auxiliary task
-  center: 0.5     # center regression, geometric constraint
-  warmup_epochs: 20  # warm-up period for center loss
 
 # Toggle whether to train with self-reconstruction and center regression.
 # If false, self-reconstruction and center regression losses/outputs are skipped.
