@@ -13,3 +13,4 @@ _target_: cellpoint.model.PQAEPretrain
 enable_self_reconstruction: false
 save_dir: null # If specified, test results will be saved here
 resume_ckpt_path: null # Path to a checkpoint to load, not used in system but in Trainer call
+pretrained_ckpt_path: null

@@ -25,3 +25,4 @@ loss_weights:
 # If false, self-reconstruction and center regression losses/outputs are skipped.
 enable_self_reconstruction: false
 resume_ckpt_path: null # Path to a checkpoint to load, not used in system but in Trainer call
+pretrained_ckpt_path: null

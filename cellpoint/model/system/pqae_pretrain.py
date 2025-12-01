@@ -33,7 +33,7 @@ class PQAEPretrain(pl.LightningModule):
                 "extractor",
                 "view_generator",
                 "decoder",
-                "cls_to_patch",
+                "global_decoder",
                 "transform",
             ]
         )
@@ -96,6 +96,33 @@ class PQAEPretrain(pl.LightningModule):
                 "frequency": 1,
             },
         }
+
+    def load_pretrained_weights(self, checkpoint_path):
+        """Load pretrained weights (extractor and/or classification_head) from checkpoint"""
+        if not checkpoint_path:
+            logger.info("No checkpoint path provided, using random initialization.")
+            return
+
+        logger.info(f"Loading pretrained weights from: {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        state_dict = checkpoint.get("state_dict", checkpoint)
+
+        missing, unexpected = self.load_state_dict(state_dict, strict=False)
+        logger.info(
+            f"✓ Loaded {len(state_dict) - len(unexpected)} keys from checkpoint"
+        )
+
+        if missing:
+            logger.info(
+                f"Missing {len(missing)} keys (will use random initialization):"
+            )
+            for key in missing:
+                logger.info(f"  - {key}")
+
+        if unexpected:
+            logger.info(f"Unexpected {len(unexpected)} keys (ignored):")
+            for key in unexpected:
+                logger.info(f"  - {key}")
 
     def self_reconstruction(self, cls_feature: torch.Tensor) -> torch.Tensor:
         """
@@ -192,8 +219,8 @@ class PQAEPretrain(pl.LightningModule):
         ) + self.loss_fn(group2.flatten(0, 1), cross_recon2.flatten(0, 1))
 
         if self.enable_self_reconstruction:
-            loss_self = self.loss_fn(group1.flatten(0, 1), self_recon1) + self.loss_fn(
-                group2.flatten(0, 1), self_recon2
+            loss_self = self.loss_fn(group1.flatten(1, 2), self_recon1) + self.loss_fn(
+                group2.flatten(1, 2), self_recon2
             )
         else:
             # If disabled, set auxiliary losses to zero

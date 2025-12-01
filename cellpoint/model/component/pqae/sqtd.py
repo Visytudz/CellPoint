@@ -89,9 +89,9 @@ class SphericalQueryTransformerDecoder(nn.Module):
         self.num_queries = num_queries
 
         # Generate standard unit sphere (Fibonacci Lattice) as anchor template
-        self.register_buffer(
-            "sphere_template", self._generate_fibonacci_sphere(num_queries)
-        )  # (1, N, 3)
+        initial_template = self._generate_fibonacci_sphere(num_queries)  # (1, N, 3)
+        self.register_buffer("template", initial_template)
+        # self.template = nn.Parameter(initial_template, requires_grad=True)
 
         self.pos_encoding = SphericalFourierEmbedding(in_dim=3, embed_dim=embed_dim)
         decoder_layer = nn.TransformerDecoderLayer(
@@ -158,7 +158,7 @@ class SphericalQueryTransformerDecoder(nn.Module):
         memory = cls_feat  # (B, 1, C)
 
         # 2. Prepare Query (spherical anchors)
-        template = self.sphere_template.expand(B, -1, -1)  # (B, N, 3)
+        template = self.template.expand(B, -1, -1)  # (B, N, 3)
         tgt = self.pos_encoding(template)  # (B, N, C)
 
         # 3. Transformer decoding
