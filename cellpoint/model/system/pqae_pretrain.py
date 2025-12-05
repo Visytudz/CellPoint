@@ -219,7 +219,7 @@ class PQAEPretrain(pl.LightningModule):
         ) + self.loss_fn(group2.flatten(0, 1), cross_recon2.flatten(0, 1))
 
         if self.enable_self_reconstruction:
-            target1 = (group1 + centers1.unsqueez(2)).flatten(1, 2)
+            target1 = (group1 + centers1.unsqueeze(2)).flatten(1, 2)
             target2 = (group2 + centers2.unsqueeze(2)).flatten(1, 2)
             loss_self = self.loss_fn(target1, self_recon1) + self.loss_fn(
                 target2, self_recon2
