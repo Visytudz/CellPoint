@@ -26,7 +26,7 @@ def normalize_to_unit_sphere(
 
 
 def batch_normalize_to_unit_sphere_torch(
-    pointcloud: torch.Tensor,
+    pointcloud: torch.Tensor, scale: float = None
 ) -> torch.Tensor:
     """Normalizes a batch of point clouds to fit within a unit sphere."""
     # Center the point cloud
@@ -34,12 +34,20 @@ def batch_normalize_to_unit_sphere_torch(
     pointcloud_centered = pointcloud - centroid  # (B, N, 3)
 
     # Scale to fit within unit sphere
-    max_dist = torch.max(
-        torch.sqrt(torch.sum(pointcloud_centered**2, dim=2)), dim=1, keepdim=True
-    ).values  # (B, 1)
-    scale_factor = torch.where(
-        max_dist > 1e-6, 1.0 / max_dist, torch.ones_like(max_dist)
-    )  # (B, 1)
+    if scale is not None:
+        scale_factor = torch.full(
+            (pointcloud.shape[0], 1),
+            scale,
+            device=pointcloud.device,
+            dtype=pointcloud.dtype,
+        )  # (B, 1)
+    else:
+        max_dist = torch.max(
+            torch.sqrt(torch.sum(pointcloud_centered**2, dim=2)), dim=1, keepdim=True
+        ).values  # (B, 1)
+        scale_factor = torch.where(
+            max_dist > 1e-6, 1.0 / max_dist, torch.ones_like(max_dist)
+        )  # (B, 1)
 
     normalized_pointcloud = pointcloud_centered * scale_factor.unsqueeze(2)  # (B, N, 3)
 
