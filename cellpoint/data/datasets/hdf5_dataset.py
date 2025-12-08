@@ -7,12 +7,13 @@ import numpy as np
 from glob import glob
 import torch.utils.data as data
 
-from cellpoint.utils.misc import normalize_to_unit_sphere
+from cellpoint.utils.misc import normalize_to_unit_sphere, pca_align
 
 logger = logging.getLogger(__name__)
 
 
 class HDF5Dataset(data.Dataset):
+
     def __init__(
         self,
         path: str,
@@ -22,6 +23,7 @@ class HDF5Dataset(data.Dataset):
         normalize_scale: float = None,
         class_choice: list[str] = None,
         load_to_ram: bool = False,
+        pca_align: bool = False,
     ) -> None:
         """
         Initialize the dataset with lazy loading.
@@ -43,6 +45,8 @@ class HDF5Dataset(data.Dataset):
             The name of the class to load.
         load_to_ram : bool, optional
             Whether to load the entire dataset into RAM. The default is False.
+        pca_align : bool, optional
+            Whether to align the point cloud using PCA. The default is False.
         """
         self.path = os.path.abspath(path)
         self.splits = splits
@@ -51,6 +55,7 @@ class HDF5Dataset(data.Dataset):
         self.normalize_scale = normalize_scale
         self.class_choice = class_choice
         self.load_to_ram = load_to_ram
+        self.pca_align = pca_align
 
         self._load_metadata()
         self._get_paths()
@@ -152,6 +157,8 @@ class HDF5Dataset(data.Dataset):
             pcl = pcl[choice, :]
         if self.normalize:
             pcl = normalize_to_unit_sphere(pcl, scale=self.normalize_scale)
+        if self.pca_align:
+            pcl = pca_align(pcl)
         pcl_tensor = torch.from_numpy(pcl)
 
         # Get label
