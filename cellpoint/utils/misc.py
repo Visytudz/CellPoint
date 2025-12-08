@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 
 
 def normalize_to_unit_sphere(
-    pointcloud: NDArray[np.float32],
+    pointcloud: NDArray[np.float32], scale=None
 ) -> NDArray[np.float32]:
     """Normalizes a point cloud to fit within a unit sphere."""
     # Center the point cloud
@@ -14,8 +14,11 @@ def normalize_to_unit_sphere(
     pointcloud_centered = pointcloud - centroid  # (N, 3)
 
     # Scale to fit within unit sphere
-    max_dist = np.max(np.sqrt(np.sum(pointcloud_centered**2, axis=1)))  # (N,)
-    scale_factor = 1.0 / max_dist if max_dist > 1e-6 else 1.0
+    if scale is not None:
+        scale_factor = scale
+    else:
+        max_dist = np.max(np.sqrt(np.sum(pointcloud_centered**2, axis=1)))  # (N,)
+        scale_factor = 1.0 / max_dist if max_dist > 1e-6 else 1.0
 
     normalized_pointcloud = pointcloud_centered * scale_factor  # (N, 3)
 

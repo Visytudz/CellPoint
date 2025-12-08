@@ -19,6 +19,7 @@ class HDF5Dataset(data.Dataset):
         splits: list[str] = ["train"],
         num_points: int = None,
         normalize: bool = True,
+        normalize_scale: float = None,
         class_choice: list[str] = None,
         load_to_ram: bool = False,
     ) -> None:
@@ -36,6 +37,8 @@ class HDF5Dataset(data.Dataset):
             we use random sampling, so it's recommended not to set this.
         normalize : bool, optional
             Whether to normalize the point cloud. The default is True.
+        normalize_scale : float, optional
+            The scale to normalize the point cloud to. If None, normalize to unit sphere. The default is None.
         class_choice : list[str], optional
             The name of the class to load.
         load_to_ram : bool, optional
@@ -45,6 +48,7 @@ class HDF5Dataset(data.Dataset):
         self.splits = splits
         self.num_points = num_points
         self.normalize = normalize
+        self.normalize_scale = normalize_scale
         self.class_choice = class_choice
         self.load_to_ram = load_to_ram
 
@@ -147,7 +151,7 @@ class HDF5Dataset(data.Dataset):
             )  # (num_points, )
             pcl = pcl[choice, :]
         if self.normalize:
-            pcl = normalize_to_unit_sphere(pcl)
+            pcl = normalize_to_unit_sphere(pcl, scale=self.normalize_scale)
         pcl_tensor = torch.from_numpy(pcl)
 
         # Get label
