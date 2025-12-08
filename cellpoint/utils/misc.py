@@ -3,6 +3,32 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from numpy.typing import NDArray
+from sklearn.decomposition import PCA
+
+
+def pca_align(point_cloud):
+    """Aligns a 3D point cloud using PCA."""
+    # 1. center the point cloud
+    centroid = np.mean(point_cloud, axis=0)
+    point_cloud = point_cloud - centroid
+
+    # 2. PCA fit
+    pca = PCA(n_components=3)
+    pca.fit(point_cloud)
+
+    # 3. rotate point cloud, PCA1 -> X, PCA2 -> Y, PCA3 -> Z
+    rotation_matrix = pca.components_.T
+    aligned_point_cloud = np.dot(point_cloud, rotation_matrix)
+
+    # 4. Sign correction
+    for i in range(3):
+        # Make sure the max along each axis is positive
+        if np.max(aligned_point_cloud[:, i]) < np.abs(
+            np.min(aligned_point_cloud[:, i])
+        ):
+            aligned_point_cloud[:, i] *= -1
+
+    return aligned_point_cloud
 
 
 def normalize_to_unit_sphere(
