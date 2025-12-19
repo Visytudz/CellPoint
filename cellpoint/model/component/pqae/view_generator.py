@@ -39,7 +39,7 @@ class PointViewGenerator(nn.Module):
 
     def _crop_and_normalize(
         self, pts: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Performs a single random crop and normalization on a batch of point clouds.
         """
@@ -71,9 +71,13 @@ class PointViewGenerator(nn.Module):
         original_centers = torch.mean(selected_pts, dim=1)  # (B, 3)
 
         # 5. Normalize the cropped view to fit within a unit sphere
-        scaled_pts = batch_normalize_to_unit_sphere_torch(selected_pts)
+        scaled_pts, scale_factor = batch_normalize_to_unit_sphere_torch(selected_pts)
 
-        return scaled_pts, original_centers  # (B, num_cropped_points, 3), (B, 3)
+        return (
+            scaled_pts,
+            original_centers,
+            scale_factor,
+        )  # (B, num_cropped_points, 3), (B, 3), (B,)
 
     def forward(
         self, pts: torch.Tensor

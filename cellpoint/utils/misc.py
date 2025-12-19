@@ -33,7 +33,7 @@ def pca_align(point_cloud):
 
 def normalize_to_unit_sphere(
     pointcloud: NDArray[np.float32], scale=None
-) -> NDArray[np.float32]:
+) -> tuple[NDArray[np.float32], float]:
     """Normalizes a point cloud to fit within a unit sphere."""
     # Center the point cloud
     centroid = np.mean(pointcloud, axis=0)  # (3,)
@@ -48,12 +48,12 @@ def normalize_to_unit_sphere(
 
     normalized_pointcloud = pointcloud_centered * scale_factor  # (N, 3)
 
-    return normalized_pointcloud
+    return normalized_pointcloud, scale_factor
 
 
 def batch_normalize_to_unit_sphere_torch(
     pointcloud: torch.Tensor, scale: float = None
-) -> torch.Tensor:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Normalizes a batch of point clouds to fit within a unit sphere."""
     # Center the point cloud
     centroid = torch.mean(pointcloud, dim=1, keepdim=True)  # (B, 1, 3)
@@ -77,7 +77,7 @@ def batch_normalize_to_unit_sphere_torch(
 
     normalized_pointcloud = pointcloud_centered * scale_factor.unsqueeze(2)  # (B, N, 3)
 
-    return normalized_pointcloud
+    return normalized_pointcloud, scale_factor.squeeze(1)  # (B, N, 3), (B,)
 
 
 def batch_rotate_torch(pc: torch.Tensor) -> torch.Tensor:

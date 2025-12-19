@@ -65,13 +65,14 @@ class ShapeNetDataset(data.Dataset):
         if self.num_points is not None and self.num_points < len(pcl):
             indices = np.random.choice(len(pcl), self.num_points, replace=False)
             pcl = pcl[indices]
-        pcl = normalize_to_unit_sphere(pcl)
+        pcl, scale_factor = normalize_to_unit_sphere(pcl)
         pcl_tensor = torch.from_numpy(pcl)
 
         sample = {
             "points": pcl_tensor,
             "label": sample_info["label"],
             "id": sample_info["id"],
+            "scale_factor": scale_factor,
         }
 
         return sample

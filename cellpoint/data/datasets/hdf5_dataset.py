@@ -155,8 +155,11 @@ class HDF5Dataset(data.Dataset):
                 pcl.shape[0], self.num_points, replace=False
             )  # (num_points, )
             pcl = pcl[choice, :]
+        scale_factor = 1.0
         if self.normalize:
-            pcl = normalize_to_unit_sphere(pcl, scale=self.normalize_scale)
+            pcl, scale_factor = normalize_to_unit_sphere(
+                pcl, scale=self.normalize_scale
+            )
         if self.pca_align:
             pcl = pca_align(pcl)
         pcl_tensor = torch.from_numpy(pcl)
@@ -170,6 +173,7 @@ class HDF5Dataset(data.Dataset):
             "label": label_tensor,
             "name": str(self.name[item]),
             "id": str(self.id[item]),
+            "scale_factor": scale_factor,
         }
 
         return sample
