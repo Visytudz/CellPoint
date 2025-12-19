@@ -193,7 +193,7 @@ class PQAEPretrain(pl.LightningModule):
         pts = self.transform(pts)
 
         # 2. generate view pairs and their relative position
-        relative_center_1_2, (view1_rot, view1), (view2_rot, view2) = (
+        relative_center_1_2, (view1_rot, view1, scale1), (view2_rot, view2, scale2) = (
             self.view_generator(pts)
         )
 
@@ -292,7 +292,7 @@ class PQAEPretrain(pl.LightningModule):
         id = batch.get("id", None)
 
         # 2. Generate view pairs and their relative position
-        relative_center_1_2, (view1_rot, view1), (view2_rot, view2) = (
+        relative_center_1_2, (view1_rot, view1, scale1), (view2_rot, view2, scale2) = (
             self.view_generator(pts)
         )
 
@@ -340,6 +340,8 @@ class PQAEPretrain(pl.LightningModule):
             "relative_center_1_2": relative_center_1_2,
             "label": label,
             "id": id,
+            "scale1": scale1,
+            "scale2": scale2,
         }
 
         # Collect outputs for epoch end processing
@@ -427,6 +429,8 @@ class PQAEPretrain(pl.LightningModule):
                 metadata = {
                     "id": sample_id,
                     "self_reconstruction_enabled": self.enable_self_reconstruction,
+                    "scale1": batch_output["scale1"][i].item(),
+                    "scale2": batch_output["scale2"][i].item(),
                     "centers1": batch_output["centers1"][i].cpu().numpy().tolist(),
                     "centers2": batch_output["centers2"][i].cpu().numpy().tolist(),
                     "relative_center_1_2": batch_output["relative_center_1_2"][i]

@@ -95,13 +95,13 @@ class PointViewGenerator(nn.Module):
         tuple[torch.Tensor,(torch.Tensor, torch.Tensor),(torch.Tensor, torch.Tensor)]
             A tuple containing:
             - relative_center: The relative position of the centers of the two views. Shape: (B, 3).
-            - (view1_rotated, view1): The first view and its unrotated version. Each of shape (B, M1, 3).
-            - (view2_rotated, view2): The second view and its unrotated version. Each of shape (B, M2, 3).
+            - (view1_rotated, view1, scale1): The first view and its unrotated version. Each of shape (B, M1, 3).
+            - (view2_rotated, view2, scale2): The second view and its unrotated version. Each of shape (B, M2, 3).
         """
         # Generate the first view
-        view1, center1 = self._crop_and_normalize(pts)
+        view1, center1, scale1 = self._crop_and_normalize(pts)
         # Generate the second view
-        view2, center2 = self._crop_and_normalize(pts)
+        view2, center2, scale2 = self._crop_and_normalize(pts)
 
         # Apply independent random rotations to each view
         if self.random_rotate:
@@ -114,4 +114,8 @@ class PointViewGenerator(nn.Module):
         # Calculate the relative position of the original centers
         relative_center = center2 - center1
 
-        return relative_center, (view1_rotated, view1), (view2_rotated, view2)
+        return (
+            relative_center,
+            (view1_rotated, view1, scale1),
+            (view2_rotated, view2, scale2),
+        )
