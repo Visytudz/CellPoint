@@ -68,9 +68,7 @@ class PointViewGenerator(nn.Module):
         selected_pts = torch.gather(pts, 1, indices)
 
         # 4. Record the geometric center in the original coordinate system
-        pts_min = selected_pts.min(dim=1).values
-        pts_max = selected_pts.max(dim=1).values
-        original_centers = (pts_min + pts_max) / 2.0
+        original_centers = torch.mean(selected_pts, dim=1)  # (B, 3)
 
         # 5. Normalize the cropped view to fit within a unit sphere
         scaled_pts = batch_normalize_to_unit_sphere_torch(selected_pts)
