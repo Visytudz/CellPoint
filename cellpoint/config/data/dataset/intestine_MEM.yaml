@@ -3,5 +3,5 @@ intestine:
   path: "/home/verve/Project/research/CellPoint/datasets/intestine/MEM"
   splits: ["train"]
   num_points: null
-  normalize: false
+  normalize: true
   class_choice: null
