@@ -141,13 +141,18 @@ class HDF5Dataset(data.Dataset):
 
     def __getitem__(self, item: int) -> dict[str, any]:
         """Retrieves a single data point from the dataset using lazy loading."""
-        # Get point cloud
+        # Get point cloud & other data
         if self.load_to_ram:
             pcl = self.data[item].copy().astype(np.float32)
         else:
             h5_path, index_in_file = self.points[item]
             with h5py.File(h5_path, "r") as f:
                 pcl = f["data"][index_in_file].astype(np.float32)
+                volume = (
+                    f["volume"][index_in_file].astype(np.float32)
+                    if "volume" in f
+                    else 0.0
+                )
 
         # randomly sample, normalize and convert to tensor
         if self.num_points is not None and self.num_points < pcl.shape[0]:
@@ -174,6 +179,7 @@ class HDF5Dataset(data.Dataset):
             "name": str(self.name[item]),
             "id": str(self.id[item]),
             "scale_factor": scale_factor,
+            "volume": volume,
         }
 
         return sample
