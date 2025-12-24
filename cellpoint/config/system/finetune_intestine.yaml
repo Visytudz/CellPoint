@@ -1,0 +1,27 @@
+defaults:
+  - model/share@share
+  - model/extractor@extractor
+  - model/classification_head@classification_head
+  - model/accuracy@acc_metrics
+  - transform/finetune_intestine@train_transform
+  - _self_
+
+_target_: cellpoint.model.PQAEFinetune
+
+optimizer_cfg:
+  head_lr: 5e-4
+  extractor_lr: 5e-5
+  min_lr: 1e-7
+  weight_decay: 0.05
+  epochs: 300
+  unfreeze_extractor_epoch: 50
+  warmup_epochs: 5
+  warmup_lr_init: 1e-6  # warmup initial learning rate
+
+vote_cfg:
+  enabled: false
+  num_votes: 10
+  acc_threshold: 0.85
+
+resume_ckpt_path: null  # for resuming training (loads full training state)
+pretrained_ckpt_path: null  # for loading pretrained weights (extractor and/or head)

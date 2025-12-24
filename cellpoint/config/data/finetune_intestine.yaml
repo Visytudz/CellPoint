@@ -1,0 +1,10 @@
+defaults:
+  - dataset@train_datasets: [intestine_MEM]
+  - dataset@val_datasets: [intestine_MEM]
+  - dataset@test_datasets: [intestine_MEM]
+  - _self_
+
+_target_: cellpoint.data.PointCloudDataModule
+
+batch_size: 32
+num_workers: 4
