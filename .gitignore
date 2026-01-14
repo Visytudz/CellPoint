@@ -8,5 +8,4 @@ scripts/
 assets/
 notebooks/
 docs/
-
-CellPoint2
+*.html
