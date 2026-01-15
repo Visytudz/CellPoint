@@ -20,7 +20,8 @@ class CellPointInference:
     Example
     -------
     >>> model = CellPointInference(
-    ...     config_path="cellpoint/config/system/pretrain.yaml",
+    ...     config_dir="cellpoint/config",
+    ...     config_name="system/pretrain",
     ...     checkpoint_path="outputs/pretrain/model.ckpt",
     ...     device="auto"
     ... )
@@ -37,7 +38,8 @@ class CellPointInference:
 
     def __init__(
         self,
-        config_path: str,
+        config_dir: str,
+        config_name: str,
         checkpoint_path: str,
         device: str = "auto",
         batch_size: int = 32,
@@ -47,8 +49,10 @@ class CellPointInference:
 
         Parameters
         ----------
-        config_path : str
-            Path to config YAML file
+        config_dir : str
+            Path to config directory (e.g., "cellpoint/config")
+        config_name : str
+            Config name without .yaml (e.g., "system/pretrain")
         checkpoint_path : str
             Path to checkpoint file
         device : str
@@ -57,9 +61,7 @@ class CellPointInference:
             Default batch size for batch processing
         """
         # Initialize base model
-        self._model = InferenceModel(config_path, checkpoint_path, device)
-
-        # Initialize functional modules
+        self._model = InferenceModel(config_dir, config_name, checkpoint_path, device)
         self._feature_extractor = FeatureExtractor(self._model)
         self._reconstruction_engine = ReconstructionEngine(self._model)
         self._batch_processor = BatchProcessor(self._model, batch_size)

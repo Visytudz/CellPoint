@@ -13,7 +13,8 @@ class InferenceModel:
 
     def __init__(
         self,
-        config_path: str,
+        config_dir: str,
+        config_name: str,
         checkpoint_path: str,
         device: str = "auto",
     ):
@@ -22,14 +23,17 @@ class InferenceModel:
 
         Parameters
         ----------
-        config_path : str
-            Path to config YAML file
+        config_dir : str
+            Path to config directory (e.g., "cellpoint/config")
+        config_name : str
+            Config name without .yaml extension (e.g., "system/pretrain")
         checkpoint_path : str
             Path to checkpoint file
         device : str
             Device to use ('auto', 'cuda', 'cpu')
         """
-        self.config_path = Path(config_path)
+        self.config_dir = Path(config_dir).absolute()
+        self.config_name = config_name
         self.checkpoint_path = Path(checkpoint_path)
 
         # Setup device
@@ -46,15 +50,23 @@ class InferenceModel:
 
     def _load_model(self):
         """Load model from config and checkpoint"""
+        logger.info(f"Config directory: {self.config_dir}")
+        logger.info(f"Config name: {self.config_name}")
+
         # Load config using hydra
         with hydra.initialize_config_dir(
-            config_dir=str(self.config_path.parent.absolute()), version_base=None
+            config_dir=str(self.config_dir), version_base=None
         ):
-            cfg = hydra.compose(config_name=self.config_path.stem)
+            cfg = hydra.compose(config_name=self.config_name)
+
+        # Extract the actual model config
+        # For "system/pretrain", cfg will be wrapped as cfg.system
+        config_key = self.config_name.split("/")[0] if "/" in self.config_name else None
+        model_cfg = cfg[config_key] if config_key and config_key in cfg else cfg
 
         # Instantiate model from config
-        logger.info(f"Instantiating model from config: {self.config_path}")
-        self.model = hydra.utils.instantiate(cfg)
+        logger.info(f"Instantiating model from config")
+        self.model = hydra.utils.instantiate(model_cfg)
 
         # Load checkpoint weights using model's built-in method
         self.model.load_pretrained_weights(str(self.checkpoint_path))
