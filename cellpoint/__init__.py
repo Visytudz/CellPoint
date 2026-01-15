@@ -9,7 +9,6 @@ from cellpoint.api import (
     InferenceModel,
     FeatureExtractor,
     ReconstructionEngine,
-    BatchProcessor,
 )
 
 __all__ = [
@@ -17,5 +16,4 @@ __all__ = [
     "InferenceModel",
     "FeatureExtractor",
     "ReconstructionEngine",
-    "BatchProcessor",
 ]
