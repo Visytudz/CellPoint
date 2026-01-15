@@ -7,7 +7,6 @@ from typing import Union, List, Dict, Optional, Any
 from cellpoint.api.model import InferenceModel
 from cellpoint.api.features import FeatureExtractor
 from cellpoint.api.reconstruction import ReconstructionEngine
-from cellpoint.api.batch import BatchProcessor
 
 
 class CellPointInference:
@@ -64,7 +63,6 @@ class CellPointInference:
         self._model = InferenceModel(config_dir, config_name, checkpoint_path, device)
         self._feature_extractor = FeatureExtractor(self._model)
         self._reconstruction_engine = ReconstructionEngine(self._model)
-        self._batch_processor = BatchProcessor(self._model, batch_size)
 
         self.device = self._model.device
         self.batch_size = batch_size
