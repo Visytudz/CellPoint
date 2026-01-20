@@ -1,8 +1,8 @@
 defaults:
-  - system: finetune_test
-  - data: finetune_test
-  - logger: null
-  - callback: null
+  - system: pretrain
+  - data: pretrain_redblood
+  - logger: [wandb]
+  - callback: pretrain
   - trainer: default
   - hydra: default
   - _self_           

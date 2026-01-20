@@ -1,7 +1,7 @@
 redblood:
   _target_: "cellpoint.data.HDF5Dataset"
   path: "/home/verve/Project/research/CellPoint/datasets/redblood/class12"
-  splits: ["train", "val", "test"]
+  splits: ["train"]
   num_points: null
   normalize: true
   class_choice: null
