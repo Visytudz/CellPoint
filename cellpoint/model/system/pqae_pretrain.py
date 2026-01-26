@@ -124,21 +124,26 @@ class PQAEPretrain(pl.LightningModule):
             for key in unexpected:
                 logger.info(f"  - {key}")
 
-    def self_reconstruction(self, cls_feature: torch.Tensor) -> torch.Tensor:
+    def self_reconstruction(
+        self, cls_feature: torch.Tensor, patch_features: torch.Tensor = None
+    ) -> torch.Tensor:
         """
-        Self reconstruction from cls token to patch.
+        Self reconstruction from cls token (optionally fused with patch features).
 
         Parameters
         ----------
         cls_feature : torch.Tensor
             The global feature of the point cloud. Shape: (B, 1, C).
+        patch_features : torch.Tensor, optional
+            The patch features of the point cloud. Shape: (B, P, C).
+            If provided, will be fused with cls_feature for reconstruction.
 
         Returns
         -------
         torch.Tensor
             The reconstructed point cloud patches. Shape: (B, N, 3).
         """
-        self_recon = self.global_decoder(cls_feature)  # (B, N, 3)
+        self_recon = self.global_decoder(cls_feature, patch_features)  # (B, N, 3)
         return self_recon
 
     def cross_reconstruction(
@@ -210,8 +215,8 @@ class PQAEPretrain(pl.LightningModule):
         # 5. self reconstruction (optional)
         if self.enable_self_reconstruction:
             # recon: (B, N, 3)
-            self_recon1 = self.self_reconstruction(cls_features1)
-            self_recon2 = self.self_reconstruction(cls_features2)
+            self_recon1 = self.self_reconstruction(cls_features1, patch_features1)
+            self_recon2 = self.self_reconstruction(cls_features2, patch_features2)
 
         # 6. calculate loss
         loss_cross = self.loss_fn(
@@ -307,8 +312,8 @@ class PQAEPretrain(pl.LightningModule):
 
         # 5. Self reconstruction (optional)
         if self.enable_self_reconstruction:
-            self_recon1 = self.self_reconstruction(cls_features1)
-            self_recon2 = self.self_reconstruction(cls_features2)
+            self_recon1 = self.self_reconstruction(cls_features1, patch_features1)
+            self_recon2 = self.self_reconstruction(cls_features2, patch_features2)
         else:
             # placeholders for downstream code; keep shapes compatible where possible
             B, P, K = group1.shape[0], group1.shape[1], group1.shape[2]

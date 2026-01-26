@@ -93,6 +93,9 @@ class SphericalQueryTransformerDecoder(nn.Module):
         self.register_buffer("template", initial_template)
         # self.template = nn.Parameter(initial_template, requires_grad=True)
 
+        # Feature fusion layer for combining cls_feat and pooled patch_features
+        self.feature_fusion = nn.Linear(embed_dim * 2, embed_dim)
+
         self.pos_encoding = SphericalFourierEmbedding(in_dim=3, embed_dim=embed_dim)
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=embed_dim,
@@ -136,7 +139,7 @@ class SphericalQueryTransformerDecoder(nn.Module):
             points.append([x, y, z])
         return torch.tensor(points, dtype=torch.float32).unsqueeze(0)  # (1, N, 3)
 
-    def forward(self, cls_feat):
+    def forward(self, cls_feat, patch_features=None):
         """
         Forward pass for reconstructing point cloud from global features.
 
@@ -144,6 +147,9 @@ class SphericalQueryTransformerDecoder(nn.Module):
         ----------
         cls_feat : torch.Tensor
             Global features of shape (Batch, C) or (Batch, 1, C).
+        patch_features : torch.Tensor, optional
+            Patch features of shape (Batch, P, C). If provided, will be max-pooled
+            and fused with cls_feat for enhanced reconstruction.
 
         Returns
         -------
@@ -155,19 +161,32 @@ class SphericalQueryTransformerDecoder(nn.Module):
         # 1. Prepare Memory (global features from Encoder)
         if cls_feat.dim() == 2:
             cls_feat = cls_feat.unsqueeze(1)  # (B, 1, C)
-        memory = cls_feat  # (B, 1, C)
 
-        # 2. Prepare Query (spherical anchors)
+        # 2. Optionally fuse with pooled patch features
+        if patch_features is not None:
+            # Max pool patch features: (B, P, C) -> (B, C)
+            pooled_patch, _ = torch.max(patch_features, dim=1)
+
+            # Concat: (B, C) + (B, C) -> (B, 2C)
+            cls_feat_squeezed = cls_feat.squeeze(1)
+            combined = torch.cat([cls_feat_squeezed, pooled_patch], dim=-1)
+
+            # Fuse back to embed_dim: (B, 2C) -> (B, C) -> (B, 1, C)
+            memory = self.feature_fusion(combined).unsqueeze(1)
+        else:
+            memory = cls_feat  # (B, 1, C)
+
+        # 3. Prepare Query (spherical anchors)
         template = self.template.expand(B, -1, -1)  # (B, N, 3)
         tgt = self.pos_encoding(template)  # (B, N, C)
 
-        # 3. Transformer decoding
+        # 4. Transformer decoding
         # tgt: Query (containing spherical geometric info)
         # memory: Key/Value (containing cell semantic info)
         # Points on sphere query memory for their desired shape
         out = self.decoder(tgt=tgt, memory=memory)  # (B, N, C)
 
-        # 4. Predict deformation and apply
+        # 5. Predict deformation and apply
         delta = self.head(out)  # (B, N, 3)
         recon_pc = template + delta  # Add offsets
 
