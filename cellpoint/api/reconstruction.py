@@ -2,7 +2,7 @@
 
 import torch
 import numpy as np
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Optional
 
 from .utils import prepare_input, prepare_batch_input
 
@@ -116,6 +116,100 @@ class ReconstructionEngine:
         return self.reconstruct_from_features(
             cls_features, patch_feat_to_use, return_numpy
         )
+
+    @torch.no_grad()
+    def fusion_reconstruct(
+        self,
+        data_list: List[Union[str, np.ndarray, torch.Tensor]],
+        weights: Union[List[float], np.ndarray, torch.Tensor],
+        normalize: bool = True,
+        normalize_weights: bool = True,
+        use_patch_fusion: bool = True,
+        return_numpy: bool = True,
+    ) -> Union[np.ndarray, torch.Tensor]:
+        """
+        Reconstruct point cloud from weighted fusion of multiple point clouds' features.
+
+        Parameters
+        ----------
+        data_list : List[Union[str, np.ndarray, torch.Tensor]]
+            List of input point clouds to fuse
+        weights : Union[List[float], np.ndarray, torch.Tensor]
+            Weights for each point cloud. Must have same length as data_list.
+        normalize : bool
+            Normalize input point clouds
+        normalize_weights : bool
+            If True, normalize weights to sum to 1.0
+        use_patch_fusion : bool
+            If True, also fuse patch features for enhanced reconstruction
+        return_numpy : bool
+            Return numpy array or torch tensor
+
+        Returns
+        -------
+        Union[np.ndarray, torch.Tensor]
+            Reconstructed point cloud from fused features, shape (N, 3)
+
+        Raises
+        ------
+        ValueError
+            If length of data_list and weights don't match
+
+        Examples
+        --------
+        >>> # Interpolate between two cells
+        >>> recon = engine.fusion_reconstruct([cell1, cell2], [0.7, 0.3])
+        >>>
+        >>> # Average multiple cells
+        >>> recon = engine.fusion_reconstruct([c1, c2, c3], [1/3, 1/3, 1/3])
+        """
+        # Validate inputs
+        if len(data_list) != len(weights):
+            raise ValueError(
+                f"Length mismatch: data_list has {len(data_list)} items, "
+                f"weights has {len(weights)} items"
+            )
+
+        if len(data_list) == 0:
+            raise ValueError("data_list cannot be empty")
+
+        # Convert weights to tensor
+        if isinstance(weights, list):
+            weights = torch.tensor(weights, dtype=torch.float32, device=self.device)
+        elif isinstance(weights, np.ndarray):
+            weights = torch.from_numpy(weights).float().to(self.device)
+        else:
+            weights = weights.float().to(self.device)
+
+        # Normalize weights if requested
+        if normalize_weights:
+            weights = weights / weights.sum()
+
+        # Extract features from all point clouds
+        cls_features_list = []
+        patch_features_list = [] if use_patch_fusion else None
+
+        for data in data_list:
+            # Prepare single input
+            pts = prepare_input(data, self.device, normalize)
+            # Extract features
+            cls_feat, patch_feat, _, _ = self.extractor(pts)
+            cls_features_list.append(cls_feat)
+            if use_patch_fusion:
+                patch_features_list.append(patch_feat)
+
+        # Weighted fusion of cls features: Σ(weight_i × cls_i)
+        cls_fused = sum(w * cls for w, cls in zip(weights, cls_features_list))
+
+        # Weighted fusion of patch features (if enabled)
+        patch_fused = None
+        if use_patch_fusion:
+            patch_fused = sum(
+                w * patch for w, patch in zip(weights, patch_features_list)
+            )
+
+        # Reconstruct from fused features
+        return self.reconstruct_from_features(cls_fused, patch_fused, return_numpy)
 
     @torch.no_grad()
     def cross_reconstruct(

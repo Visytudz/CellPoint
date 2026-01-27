@@ -211,6 +211,72 @@ class CellPointInference:
         )
 
     @torch.no_grad()
+    def fusion_reconstruct(
+        self,
+        data_list: List[Union[str, np.ndarray, torch.Tensor]],
+        weights: Union[List[float], np.ndarray, torch.Tensor],
+        normalize: bool = True,
+        normalize_weights: bool = True,
+        use_patch_fusion: bool = True,
+        return_numpy: bool = True,
+    ) -> Union[np.ndarray, torch.Tensor]:
+        """
+        Reconstruct point cloud from weighted fusion of multiple point clouds.
+
+        This enables morphology interpolation, averaging, and blending by fusing
+        features from multiple point clouds before reconstruction.
+
+        Parameters
+        ----------
+        data_list : List[Union[str, np.ndarray, torch.Tensor]]
+            List of input point clouds to fuse
+        weights : Union[List[float], np.ndarray, torch.Tensor]
+            Weights for each point cloud. Must have same length as data_list.
+            Will be automatically normalized to sum to 1.0 if normalize_weights=True.
+        normalize : bool
+            Normalize input point clouds
+        normalize_weights : bool
+            If True, normalize weights to sum to 1.0
+        use_patch_fusion : bool
+            If True, also fuse patch features for enhanced reconstruction
+        return_numpy : bool
+            Return numpy array or torch tensor
+
+        Returns
+        -------
+        Union[np.ndarray, torch.Tensor]
+            Reconstructed point cloud from fused features
+
+        Examples
+        --------
+        >>> # Interpolate between two cell morphologies
+        >>> cell_interp = model.fusion_reconstruct(
+        ...     [cell_normal, cell_abnormal],
+        ...     weights=[0.7, 0.3]
+        ... )
+        >>>
+        >>> # Average multiple cells
+        >>> cell_avg = model.fusion_reconstruct(
+        ...     [cell1, cell2, cell3],
+        ...     weights=[1/3, 1/3, 1/3]  # Auto-normalized if sum != 1
+        ... )
+        >>>
+        >>> # Weighted blending with different importance
+        >>> cell_blend = model.fusion_reconstruct(
+        ...     [template, variant1, variant2],
+        ...     weights=[0.6, 0.3, 0.1]
+        ... )
+        """
+        return self._reconstruction_engine.fusion_reconstruct(
+            data_list,
+            weights,
+            normalize,
+            normalize_weights,
+            use_patch_fusion,
+            return_numpy,
+        )
+
+    @torch.no_grad()
     def cross_reconstruct(
         self,
         data: Union[str, np.ndarray, torch.Tensor, List],
