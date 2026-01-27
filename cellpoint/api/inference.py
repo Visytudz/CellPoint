@@ -165,6 +165,52 @@ class CellPointInference:
         )
 
     @torch.no_grad()
+    def reconstruct_from_features(
+        self,
+        cls_features: torch.Tensor,
+        patch_features: torch.Tensor = None,
+        return_numpy: bool = True,
+    ) -> Union[np.ndarray, torch.Tensor]:
+        """
+        Reconstruct point cloud directly from extracted features.
+
+        Parameters
+        ----------
+        cls_features : torch.Tensor
+            Global features of shape (B, C) or (B, 1, C)
+        patch_features : torch.Tensor, optional
+            Patch features of shape (B, P, C). If provided, will be fused with
+            cls_features for enhanced reconstruction.
+        return_numpy : bool
+            Return numpy array or torch tensor
+
+        Returns
+        -------
+        Union[np.ndarray, torch.Tensor]
+            Reconstructed point cloud(s)
+
+        Examples
+        --------
+        >>> # Extract features once
+        >>> features = model.extract_features(data)
+        >>>
+        >>> # Reconstruct with fusion
+        >>> recon1 = model.reconstruct_from_features(
+        ...     features['cls'], features['patch']
+        ... )
+        >>>
+        >>> # Reconstruct without fusion
+        >>> recon2 = model.reconstruct_from_features(features['cls'])
+        >>>
+        >>> # Feature interpolation
+        >>> feat_interp = 0.5 * feat1['cls'] + 0.5 * feat2['cls']
+        >>> recon_interp = model.reconstruct_from_features(feat_interp)
+        """
+        return self._reconstruction_engine.reconstruct_from_features(
+            cls_features, patch_features, return_numpy
+        )
+
+    @torch.no_grad()
     def cross_reconstruct(
         self,
         data: Union[str, np.ndarray, torch.Tensor, List],

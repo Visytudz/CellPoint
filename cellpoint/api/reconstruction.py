@@ -27,6 +27,52 @@ class ReconstructionEngine:
         self.device = model.device
 
     @torch.no_grad()
+    def reconstruct_from_features(
+        self,
+        cls_features: torch.Tensor,
+        patch_features: torch.Tensor = None,
+        return_numpy: bool = True,
+    ) -> Union[np.ndarray, torch.Tensor]:
+        """
+        Reconstruct point cloud directly from extracted features.
+
+        Parameters
+        ----------
+        cls_features : torch.Tensor
+            Global features of shape (B, C) or (B, 1, C)
+        patch_features : torch.Tensor, optional
+            Patch features of shape (B, P, C). If provided, will be fused with
+            cls_features for enhanced reconstruction.
+        return_numpy : bool
+            Return numpy array or torch tensor
+
+        Returns
+        -------
+        Union[np.ndarray, torch.Tensor]
+            Reconstructed point cloud(s)
+            - Single input: (N, 3)
+            - Batch input: (B, N, 3)
+        """
+        # Ensure features are on the correct device
+        if cls_features.device != self.device:
+            cls_features = cls_features.to(self.device)
+        if patch_features is not None and patch_features.device != self.device:
+            patch_features = patch_features.to(self.device)
+
+        # Reconstruct from features
+        reconstructed = self.model.model.self_reconstruction(
+            cls_features, patch_features
+        )  # (B, N, 3)
+
+        if return_numpy:
+            reconstructed = reconstructed.cpu().numpy()
+            # Remove batch dimension if single input
+            if reconstructed.shape[0] == 1:
+                reconstructed = reconstructed[0]
+
+        return reconstructed
+
+    @torch.no_grad()
     def self_reconstruct(
         self,
         data: Union[str, np.ndarray, torch.Tensor, List],
@@ -35,7 +81,7 @@ class ReconstructionEngine:
         use_patch_fusion: bool = True,
     ) -> Union[np.ndarray, torch.Tensor]:
         """
-        Perform self-reconstruction from cls features (optionally fused with patch features).
+        Perform self-reconstruction from point cloud input.
 
         Parameters
         ----------
@@ -62,26 +108,14 @@ class ReconstructionEngine:
         else:
             data = prepare_input(data, self.device, normalize)
 
-        # Extract cls features and patch features
+        # Extract features
         cls_features, patch_features, _, _ = self.extractor(data)
 
-        # Reconstruct from cls features (optionally fused with patch features)
-        if use_patch_fusion:
-            reconstructed = self.model.model.self_reconstruction(
-                cls_features, patch_features
-            )  # (B, N, 3)
-        else:
-            reconstructed = self.model.model.self_reconstruction(
-                cls_features, None
-            )  # (B, N, 3)
-
-        if return_numpy:
-            reconstructed = reconstructed.cpu().numpy()
-            # Remove batch dimension if single input
-            if reconstructed.shape[0] == 1:
-                reconstructed = reconstructed[0]
-
-        return reconstructed
+        # Use reconstruct_from_features for actual reconstruction
+        patch_feat_to_use = patch_features if use_patch_fusion else None
+        return self.reconstruct_from_features(
+            cls_features, patch_feat_to_use, return_numpy
+        )
 
     @torch.no_grad()
     def cross_reconstruct(
