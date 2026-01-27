@@ -32,9 +32,10 @@ class ReconstructionEngine:
         data: Union[str, np.ndarray, torch.Tensor, List],
         normalize: bool = True,
         return_numpy: bool = True,
+        use_patch_fusion: bool = True,
     ) -> Union[np.ndarray, torch.Tensor]:
         """
-        Perform self-reconstruction from cls features.
+        Perform self-reconstruction from cls features (optionally fused with patch features).
 
         Parameters
         ----------
@@ -44,6 +45,9 @@ class ReconstructionEngine:
             Normalize input point clouds
         return_numpy : bool
             Return numpy array or torch tensor
+        use_patch_fusion : bool
+            If True, fuse max-pooled patch features with cls features for reconstruction.
+            This typically improves reconstruction quality by incorporating local details.
 
         Returns
         -------
@@ -58,11 +62,18 @@ class ReconstructionEngine:
         else:
             data = prepare_input(data, self.device, normalize)
 
-        # Extract cls features
-        cls_features, _, _, _ = self.extractor(data)
+        # Extract cls features and patch features
+        cls_features, patch_features, _, _ = self.extractor(data)
 
-        # Reconstruct from cls features
-        reconstructed = self.model.model.self_reconstruction(cls_features)  # (B, N, 3)
+        # Reconstruct from cls features (optionally fused with patch features)
+        if use_patch_fusion:
+            reconstructed = self.model.model.self_reconstruction(
+                cls_features, patch_features
+            )  # (B, N, 3)
+        else:
+            reconstructed = self.model.model.self_reconstruction(
+                cls_features, None
+            )  # (B, N, 3)
 
         if return_numpy:
             reconstructed = reconstructed.cpu().numpy()

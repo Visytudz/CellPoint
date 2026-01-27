@@ -138,9 +138,10 @@ class CellPointInference:
         data: Union[str, np.ndarray, torch.Tensor, List],
         normalize: bool = True,
         return_numpy: bool = True,
+        use_patch_fusion: bool = True,
     ) -> Union[np.ndarray, torch.Tensor]:
         """
-        Perform self-reconstruction from cls features.
+        Perform self-reconstruction from cls features (optionally fused with patch features).
 
         Parameters
         ----------
@@ -150,6 +151,9 @@ class CellPointInference:
             Normalize input point clouds
         return_numpy : bool
             Return numpy array or torch tensor
+        use_patch_fusion : bool
+            If True, fuse max-pooled patch features with cls features for reconstruction.
+            This typically improves reconstruction quality by incorporating local details.
 
         Returns
         -------
@@ -157,7 +161,7 @@ class CellPointInference:
             Reconstructed point cloud(s)
         """
         return self._reconstruction_engine.self_reconstruct(
-            data, normalize, return_numpy
+            data, normalize, return_numpy, use_patch_fusion
         )
 
     @torch.no_grad()
