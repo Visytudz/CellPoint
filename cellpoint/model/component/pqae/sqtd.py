@@ -148,8 +148,9 @@ class SphericalQueryTransformerDecoder(nn.Module):
         cls_feat : torch.Tensor
             Global features of shape (Batch, C) or (Batch, 1, C).
         patch_features : torch.Tensor, optional
-            Patch features of shape (Batch, P, C). If provided, will be max-pooled
-            and fused with cls_feat for enhanced reconstruction.
+            Patch features of shape (Batch, P, C) or (Batch, C).
+            - If (Batch, P, C): will be max-pooled to (Batch, C) then fused.
+            - If (Batch, C): directly fused without pooling.
 
         Returns
         -------
@@ -162,10 +163,20 @@ class SphericalQueryTransformerDecoder(nn.Module):
         if cls_feat.dim() == 2:
             cls_feat = cls_feat.unsqueeze(1)  # (B, 1, C)
 
-        # 2. Optionally fuse with pooled patch features
+        # 2. Optionally fuse with patch features
         if patch_features is not None:
-            # Max pool patch features: (B, P, C) -> (B, C)
-            pooled_patch, _ = torch.max(patch_features, dim=1)
+            # Handle different patch_features shapes
+            if patch_features.dim() == 3:
+                # (B, P, C) -> Max pool to (B, C)
+                pooled_patch, _ = torch.max(patch_features, dim=1)
+            elif patch_features.dim() == 2:
+                # Already (B, C), use directly
+                pooled_patch = patch_features
+            else:
+                raise ValueError(
+                    f"patch_features must be 2D (B, C) or 3D (B, P, C), "
+                    f"got {patch_features.dim()}D"
+                )
 
             # Concat: (B, C) + (B, C) -> (B, 2C)
             cls_feat_squeezed = cls_feat.squeeze(1)

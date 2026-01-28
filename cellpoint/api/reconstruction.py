@@ -29,8 +29,8 @@ class ReconstructionEngine:
     @torch.no_grad()
     def reconstruct_from_features(
         self,
-        cls_features: torch.Tensor,
-        patch_features: torch.Tensor = None,
+        cls_features: Union[torch.Tensor, np.ndarray],
+        patch_features: Union[torch.Tensor, np.ndarray, None] = None,
         return_numpy: bool = True,
     ) -> Union[np.ndarray, torch.Tensor]:
         """
@@ -38,11 +38,12 @@ class ReconstructionEngine:
 
         Parameters
         ----------
-        cls_features : torch.Tensor
-            Global features of shape (B, C) or (B, 1, C)
-        patch_features : torch.Tensor, optional
-            Patch features of shape (B, P, C). If provided, will be fused with
-            cls_features for enhanced reconstruction.
+        cls_features : Union[torch.Tensor, np.ndarray]
+            Global features of shape (C,) or (B, C) or (B, 1, C)
+        patch_features : Union[torch.Tensor, np.ndarray, None], optional
+            Patch features of shape (C,), (B, C), or (B, P, C).
+            - If (B, P, C): will be max-pooled then fused with cls_features.
+            - If (C,) or (B, C): directly fused without pooling (e.g., pre-pooled features).
         return_numpy : bool
             Return numpy array or torch tensor
 
@@ -53,6 +54,21 @@ class ReconstructionEngine:
             - Single input: (N, 3)
             - Batch input: (B, N, 3)
         """
+        # Convert numpy arrays to torch tensors if needed
+        if isinstance(cls_features, np.ndarray):
+            cls_features = torch.from_numpy(cls_features).float()
+        if patch_features is not None and isinstance(patch_features, np.ndarray):
+            patch_features = torch.from_numpy(patch_features).float()
+
+        # Track if input was single sample (no batch dimension)
+        single_input = cls_features.ndim == 1
+
+        # Add batch dimension if needed
+        if single_input:
+            cls_features = cls_features.unsqueeze(0)  # (C,) -> (1, C)
+            if patch_features is not None:
+                patch_features = patch_features.unsqueeze(0)  # (C,) -> (1, C)
+
         # Ensure features are on the correct device
         if cls_features.device != self.device:
             cls_features = cls_features.to(self.device)
@@ -67,7 +83,7 @@ class ReconstructionEngine:
         if return_numpy:
             reconstructed = reconstructed.cpu().numpy()
             # Remove batch dimension if single input
-            if reconstructed.shape[0] == 1:
+            if single_input or reconstructed.shape[0] == 1:
                 reconstructed = reconstructed[0]
 
         return reconstructed

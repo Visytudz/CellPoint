@@ -167,20 +167,28 @@ class CellPointInference:
     @torch.no_grad()
     def reconstruct_from_features(
         self,
-        cls_features: torch.Tensor,
-        patch_features: torch.Tensor = None,
+        cls_features: Union[torch.Tensor, np.ndarray],
+        patch_features: Union[torch.Tensor, np.ndarray, None] = None,
         return_numpy: bool = True,
     ) -> Union[np.ndarray, torch.Tensor]:
         """
         Reconstruct point cloud directly from extracted features.
 
+        This is useful when you want to:
+        - Avoid re-extracting features for multiple reconstructions
+        - Perform feature interpolation or manipulation before reconstruction
+        - Batch process features separately from reconstruction
+        - Use pre-pooled patch features to skip pooling step
+
         Parameters
         ----------
-        cls_features : torch.Tensor
-            Global features of shape (B, C) or (B, 1, C)
-        patch_features : torch.Tensor, optional
-            Patch features of shape (B, P, C). If provided, will be fused with
-            cls_features for enhanced reconstruction.
+        cls_features : Union[torch.Tensor, np.ndarray]
+            Global features of shape (C,), (B, C), or (B, 1, C)
+            Automatically adds batch dimension if single sample (C,) is provided
+        patch_features : Union[torch.Tensor, np.ndarray, None], optional
+            Patch features of shape (C,), (B, C), or (B, P, C).
+            - If (B, P, C): will be max-pooled then fused with cls_features.
+            - If (C,) or (B, C): directly fused without pooling (e.g., pre-pooled features).
         return_numpy : bool
             Return numpy array or torch tensor
 
@@ -188,21 +196,24 @@ class CellPointInference:
         -------
         Union[np.ndarray, torch.Tensor]
             Reconstructed point cloud(s)
+            - Single input: (N, 3)
+            - Batch input: (B, N, 3)
 
         Examples
         --------
-        >>> # Extract features once
+        >>> # Method 1: Use original patch features (auto-pooled)
         >>> features = model.extract_features(data)
-        >>>
-        >>> # Reconstruct with fusion
-        >>> recon1 = model.reconstruct_from_features(
+        >>> recon = model.reconstruct_from_features(
         ...     features['cls'], features['patch']
         ... )
         >>>
-        >>> # Reconstruct without fusion
-        >>> recon2 = model.reconstruct_from_features(features['cls'])
+        >>> # Method 2: Use pre-pooled patch features (skip pooling)
+        >>> pooled_patch = torch.max(features['patch'], dim=1)[0]  # (B, C)
+        >>> recon = model.reconstruct_from_features(
+        ...     features['cls'], pooled_patch
+        ... )
         >>>
-        >>> # Feature interpolation
+        >>> # Method 3: Feature interpolation
         >>> feat_interp = 0.5 * feat1['cls'] + 0.5 * feat2['cls']
         >>> recon_interp = model.reconstruct_from_features(feat_interp)
         """
