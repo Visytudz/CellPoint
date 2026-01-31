@@ -1,0 +1,28 @@
+defaults:
+  - model/share@share
+  - model/view_generator@view_generator
+  - model/extractor@extractor
+  - model/sqtd@global_decoder
+  - model/decoder@decoder
+  - transform/pretrain_redblood@transform
+  - _self_
+
+_target_: cellpoint.model.PQAEPretrain
+
+optimizer_cfg:
+  lr: 5e-4
+  min_lr: 1e-6
+  epochs: 200
+  weight_decay: 0.05
+  warmup_epochs: 10
+  warmup_lr_init: 1e-6
+
+loss_weights:
+  cross: 1.0      # cross reconstruction, core task
+  self: 0.5       # self reconstruction, auxiliary task
+
+# Toggle whether to train with self-reconstruction and center regression.
+# If false, self-reconstruction and center regression losses/outputs are skipped.
+enable_self_reconstruction: false
+resume_ckpt_path: null # Path to a checkpoint to load, not used in system but in Trainer call
+pretrained_ckpt_path: null

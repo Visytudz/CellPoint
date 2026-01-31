@@ -1,5 +1,5 @@
 defaults:
-  - system: pretrain
+  - system: pretrain_redblood
   - data: pretrain_redblood
   - logger: [wandb]
   - callback: pretrain

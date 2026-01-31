@@ -1,0 +1,7 @@
+_target_: cellpoint.utils.transform.Compose
+transforms:
+  - _target_: cellpoint.utils.transform.PointcloudFarthestPointSampling
+    num_points: 4096
+    expand_ratio: 1.1
+
+  - _target_: cellpoint.utils.transform.PointcloudRotate
