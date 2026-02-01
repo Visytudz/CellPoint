@@ -18,10 +18,19 @@ class CellPointInference:
 
     Example
     -------
+    >>> # Method 1: Load from config directory (Hydra-based)
     >>> model = CellPointInference(
     ...     config_dir="cellpoint/config",
     ...     config_name="system/pretrain",
     ...     checkpoint_path="outputs/pretrain/model.ckpt",
+    ...     device="auto"
+    ... )
+    >>>
+    >>> # Method 2: Load from complete yaml file
+    >>> model = CellPointInference(
+    ...     config_dir="outputs/pretrain/xxx/.hydra/config.yaml",
+    ...     config_name="system",
+    ...     checkpoint_path="outputs/pretrain/xxx/checkpoints/last.ckpt",
     ...     device="auto"
     ... )
     >>>
@@ -49,9 +58,11 @@ class CellPointInference:
         Parameters
         ----------
         config_dir : str
-            Path to config directory (e.g., "cellpoint/config")
+            Path to config directory or yaml file.
+            - Directory: "cellpoint/config" (use with config_name="system/pretrain")
+            - File: "outputs/xxx/.hydra/config.yaml" (use with config_name="system")
         config_name : str
-            Config name without .yaml (e.g., "system/pretrain")
+            Config name without .yaml (e.g., "system/pretrain") or field name (e.g., "system")
         checkpoint_path : str
             Path to checkpoint file
         device : str

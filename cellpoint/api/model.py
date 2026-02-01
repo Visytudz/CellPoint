@@ -4,6 +4,7 @@ import torch
 import hydra
 import logging
 from pathlib import Path
+from omegaconf import OmegaConf
 
 logger = logging.getLogger(__name__)
 
@@ -50,19 +51,36 @@ class InferenceModel:
 
     def _load_model(self):
         """Load model from config and checkpoint"""
-        logger.info(f"Config directory: {self.config_dir}")
+        logger.info(f"Config path: {self.config_dir}")
         logger.info(f"Config name: {self.config_name}")
 
-        # Load config using hydra
-        with hydra.initialize_config_dir(
-            config_dir=str(self.config_dir), version_base=None
-        ):
-            cfg = hydra.compose(config_name=self.config_name)
+        # Check if config_dir is a file or directory
+        if self.config_dir.is_file():
+            # Load directly from yaml file
+            logger.info(f"Loading from yaml file: {self.config_dir}")
+            cfg = OmegaConf.load(self.config_dir)
 
-        # Extract the actual model config
-        # For "system/pretrain", cfg will be wrapped as cfg.system
-        config_key = self.config_name.split("/")[0] if "/" in self.config_name else None
-        model_cfg = cfg[config_key] if config_key and config_key in cfg else cfg
+            # Extract field specified by config_name (e.g., "system")
+            if self.config_name and self.config_name in cfg:
+                model_cfg = cfg[self.config_name]
+                logger.info(f"Extracted '{self.config_name}' field from config")
+            else:
+                model_cfg = cfg
+                logger.info(f"Using full config (no field extraction)")
+        else:
+            # Use Hydra to load from directory (original behavior)
+            logger.info(f"Loading from directory using Hydra")
+            with hydra.initialize_config_dir(
+                config_dir=str(self.config_dir), version_base=None
+            ):
+                cfg = hydra.compose(config_name=self.config_name)
+
+            # Extract the actual model config
+            # For "system/pretrain", cfg will be wrapped as cfg.system
+            config_key = (
+                self.config_name.split("/")[0] if "/" in self.config_name else None
+            )
+            model_cfg = cfg[config_key] if config_key and config_key in cfg else cfg
 
         # Instantiate model from config
         logger.info(f"Instantiating model from config")
