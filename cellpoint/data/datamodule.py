@@ -52,6 +52,9 @@ class PointCloudDataModule(pl.LightningDataModule):
             logger.info(
                 f"🔥 [DataModule] Train datasets loaded: {len(self.train_ds_list)} sets, Total samples: {total_train}"
             )
+            logger.info(
+                f"📊 [DataModule] Data Shape: {self.train_ds_list[0][0]['points'].shape if self.train_ds_list else 'N/A'}"
+            )
             if self.val_ds_list:
                 total_val = sum(len(ds) for ds in self.val_ds_list)
                 logger.info(

@@ -1,6 +1,9 @@
 import math
+import logging
 import torch
 import torch.nn as nn
+
+logger = logging.getLogger(__name__)
 
 
 class SphericalFourierEmbedding(nn.Module):
@@ -138,6 +141,47 @@ class SphericalQueryTransformerDecoder(nn.Module):
             z = math.sin(theta) * radius
             points.append([x, y, z])
         return torch.tensor(points, dtype=torch.float32).unsqueeze(0)  # (1, N, 3)
+
+    def _load_from_state_dict(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        """Custom loading to handle potential shape mismatches for the template."""
+        # Check if template exists in state_dict and if shapes match
+        template_key = prefix + "template"
+
+        if template_key in state_dict:
+            checkpoint_template = state_dict[template_key]
+            current_template = self.template
+
+            # Check for shape mismatch
+            if checkpoint_template.shape != current_template.shape:
+                # Shape mismatch: remove from state_dict to avoid loading
+                logger.warning(
+                    f"⚠️  Skipping '{template_key}' due to shape mismatch: "
+                    f"checkpoint {checkpoint_template.shape} vs "
+                    f"current model {current_template.shape}. "
+                    f"Using newly initialized template."
+                )
+                # Temporarily remove from state_dict to prevent parent class from loading
+                state_dict.pop(template_key)
+
+        # Call parent class's default loading logic for other parameters
+        super()._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        )
 
     def forward(self, cls_feat, patch_features=None):
         """
