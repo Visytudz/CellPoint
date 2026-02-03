@@ -2,10 +2,11 @@
 
 import torch
 import numpy as np
-from typing import Union, List, Dict, Optional, Any
+from typing import Union, List, Dict, Callable
 
 from cellpoint.api.model import InferenceModel
 from cellpoint.api.features import FeatureExtractor
+from cellpoint.api.saliency import SaliencyAnalyzer
 from cellpoint.api.reconstruction import ReconstructionEngine
 
 
@@ -73,6 +74,7 @@ class CellPointInference:
         # Initialize base model
         self._model = InferenceModel(config_dir, config_name, checkpoint_path, device)
         self._feature_extractor = FeatureExtractor(self._model)
+        self._saliency_analyzer = SaliencyAnalyzer(self._model)
         self._reconstruction_engine = ReconstructionEngine(self._model)
 
         self.device = self._model.device
@@ -324,6 +326,70 @@ class CellPointInference:
         """
         return self._reconstruction_engine.cross_reconstruct(
             data, normalize, return_numpy
+        )
+
+        # ==================== Gradient Saliency Methods ====================
+
+    def compute_pca_saliency(
+        self,
+        pts: Union[torch.Tensor, np.ndarray],
+        pca_components: np.ndarray,
+        aggregate: str = "norm",
+    ) -> tuple:
+        """
+        Compute gradient saliency for PCA principal components.
+
+        Parameters
+        ----------
+        pts : Union[torch.Tensor, np.ndarray]
+            Input point clouds, shape (N, 3) or (B, N, 3)
+        pca_components : np.ndarray
+            PCA principal component vectors, shape (n_components, feature_dim)
+            where feature_dim = 2*C (concatenated cls and patch features)
+        aggregate : str
+            How to aggregate 3D gradients into saliency scores:
+            - 'norm' (default): L2 norm of gradient vectors
+            - 'abs': L1 norm (sum of absolute values)
+            - 'raw': Return raw gradients without aggregation
+
+        Returns
+        -------
+        saliency_per_pc : list of np.ndarray
+            Saliency maps for each PC
+        group_pts : np.ndarray
+            Point cloud coordinates (absolute) for visualization
+        """
+        return self._saliency_analyzer.compute_pca_saliency(
+            pts, pca_components, aggregate
+        )
+
+    def compute_gradient_saliency(
+        self,
+        pts: Union[torch.Tensor, np.ndarray],
+        target_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+        aggregate: str = "norm",
+    ) -> tuple:
+        """
+        Generic gradient saliency computation with custom target function.
+
+        Parameters
+        ----------
+        pts : Union[torch.Tensor, np.ndarray]
+            Input point clouds, shape (N, 3) or (B, N, 3)
+        target_fn : Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+            Function that takes (cls_features, patch_features) and returns a scalar
+        aggregate : str
+            How to aggregate gradients: 'norm', 'abs', or 'raw'
+
+        Returns
+        -------
+        saliency : np.ndarray
+            Saliency scores
+        group_pts : np.ndarray
+            Point cloud coordinates (absolute) for visualization
+        """
+        return self._saliency_analyzer.compute_gradient_saliency(
+            pts, target_fn, aggregate
         )
 
     # ==================== Utility Methods ====================
