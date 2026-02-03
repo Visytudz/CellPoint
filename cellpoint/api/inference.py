@@ -354,8 +354,9 @@ class CellPointInference:
 
         Returns
         -------
-        saliency_per_pc : list of np.ndarray
-            Saliency maps for each PC
+        saliency_per_pc : np.ndarray
+            Saliency maps for each PC, shape (n_components, B, P*K) or (n_components, P*K)
+
         group_pts : np.ndarray
             Point cloud coordinates (absolute) for visualization
         """

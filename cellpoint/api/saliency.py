@@ -48,9 +48,8 @@ class SaliencyAnalyzer:
 
         Returns
         -------
-        saliency_per_pc : list of np.ndarray
-            Saliency maps for each PC, each with shape (B, P*K) or (P*K,) for single sample
-            where P is number of patches and K is points per patch
+        saliency_per_pc : np.ndarray
+            Saliency maps for each PC, shape (n_components, B, P*K) or (n_components, P*K)
         group_pts : np.ndarray
             Point cloud coordinates (absolute) for visualization, shape (B, P*K, 3) or (P*K, 3)
         """
@@ -82,7 +81,12 @@ class SaliencyAnalyzer:
             if group_pts is None:
                 group_pts = pts_coords
 
-        return saliency_list, group_pts
+        # convert saliency_list to ndarray
+        saliency_array = np.array(
+            saliency_list
+        )  # (n_components, B, P*K) or (n_components, P*K)
+
+        return saliency_array, group_pts
 
     def compute_gradient_saliency(
         self,
