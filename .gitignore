@@ -1,11 +1,22 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.egg-info/
 .vscode/
 .qoder/
+
+# Data folders
 /datasets
 outputs/
 scripts/
-assets/
 notebooks/
 docs/
+
+# typecheckers
 *.html
+
+# specific files
+cellpoint/config/data/dataset/ply_data.yaml
+cellpoint/config/data/pretrain_ply.yaml
+cellpoint/config/system/transform/pretrain_ply.yaml
+cellpoint/config/system/pretrain_ply.yaml
+cellpoint/config/pretrain_ply.yaml
