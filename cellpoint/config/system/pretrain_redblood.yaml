@@ -16,6 +16,7 @@ optimizer_cfg:
   weight_decay: 0.05
   warmup_epochs: 10
   warmup_lr_init: 1e-6
+  unfreeze_extractor_epoch: 0  # Set > 0 to freeze extractor and train only decoders initially
 
 loss_weights:
   cross: 1.0      # cross reconstruction, core task

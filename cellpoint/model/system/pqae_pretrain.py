@@ -57,6 +57,9 @@ class PQAEPretrain(pl.LightningModule):
         self.enable_self_reconstruction = enable_self_reconstruction
         self.test_step_outputs = []
 
+        # Extractor Freeze Control
+        self.extractor_frozen = False
+
     def configure_optimizers(self):
         optimizer = AdamW(
             self.parameters(),
@@ -253,6 +256,27 @@ class PQAEPretrain(pl.LightningModule):
         )
 
         return total_loss
+
+    def on_train_epoch_start(self):
+        """Control extractor freeze/unfreeze"""
+        current_epoch = self.current_epoch
+        unfreeze_epoch = getattr(self.optimizer_cfg, "unfreeze_extractor_epoch", 0)
+
+        if current_epoch < unfreeze_epoch and not self.extractor_frozen:
+            logger.info(
+                f"Epoch {current_epoch}: Freezing extractor (training decoders only)."
+            )
+            for param in self.extractor.parameters():
+                param.requires_grad = False
+            self.extractor_frozen = True
+
+        elif current_epoch >= unfreeze_epoch and self.extractor_frozen:
+            logger.info(
+                f"Epoch {current_epoch}: Unfreezing extractor (training all components)."
+            )
+            for param in self.extractor.parameters():
+                param.requires_grad = True
+            self.extractor_frozen = False
 
     def on_train_epoch_end(self):
         """Log epoch summary"""
