@@ -68,20 +68,18 @@ class PLYDataset(data.Dataset):
 
         if self.ply_dir is not None:
             # Get all .ply files from directory
-            ply_dir = os.path.abspath(self.ply_dir)
-            if not os.path.isdir(ply_dir):
-                raise ValueError(f"Directory {ply_dir} does not exist.")
+            if not os.path.isdir(self.ply_dir):
+                raise ValueError(f"Directory {self.ply_dir} does not exist.")
 
-            ply_pattern = os.path.join(ply_dir, "*.ply")
+            ply_pattern = os.path.join(self.ply_dir, "*.ply")
             self.ply_paths = sorted(glob(ply_pattern))
 
             if len(self.ply_paths) == 0:
-                logger.warning(f"No .ply files found in {ply_dir}")
+                logger.warning(f"No .ply files found in {self.ply_dir}")
 
         elif self.ply_list is not None:
             # Use provided list of file paths
             for ply_path in self.ply_list:
-                ply_path = os.path.abspath(ply_path)
                 if os.path.exists(ply_path):
                     self.ply_paths.append(ply_path)
                 else:
