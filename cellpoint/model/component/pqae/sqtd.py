@@ -86,6 +86,7 @@ class SphericalQueryTransformerDecoder(nn.Module):
         nhead=6,
         dim_feedforward=1024,
         dropout=0.1,
+        optimize_template=True,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -94,7 +95,8 @@ class SphericalQueryTransformerDecoder(nn.Module):
         # Generate standard unit sphere (Fibonacci Lattice) as anchor template
         initial_template = self._generate_fibonacci_sphere(num_queries)  # (1, N, 3)
         self.register_buffer("template", initial_template)
-        # self.template = nn.Parameter(initial_template, requires_grad=True)
+        if optimize_template:
+            self.template = nn.Parameter(initial_template, requires_grad=True)
 
         # Feature fusion layer for combining cls_feat and pooled patch_features
         self.feature_fusion = nn.Linear(embed_dim * 2, embed_dim)
